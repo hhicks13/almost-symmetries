@@ -184,10 +184,9 @@ def main():
     # build cost matrix / solve weighted assignment # Left then right
     #
 
-    # for jim 
+    # for jim --  homework assignement on bipartite set construction. 
     LeftBp = [ (0,num2namepoint[idv]) if idi == 0 else (0,idv) for idi, vertices in enumerate([Nu,[i for i in range(dim[1]) ]]) for idv in vertices] # counter intuitive, but by doing the same operation twice you save more time
-
-    RightBp =[ (1,num2namepoint[idv]) if idi == 0 else (1,idv) for idi, vertices in enumerate([Nv,[i for i in range(dim[0]) ]]) for idv in vertices] #
+    RightBp =[ (1,num2namepoint[idv]) if idi == 0 else (1,idv) for idi, vertices in enumerate([Nv,[i for i in range(dim[0]) ]]) for idv in vertices] # 
     #
     
     for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
@@ -211,13 +210,15 @@ def main():
     #
     # Format Edges for networkx
     
-    #weighted_edges = [ (e[0],e[1],weight(e,e[0][1],e[1][1])) for e in it.product(LeftBp,RightBp) ] #O(n^2)
+    weighted_edges = [ (e[0],e[1],weight(g,e[0][1],e[1][1])) for e in it.product(LeftBp,RightBp) ] #O(n^2)
+
+    #print(weighted_edges)
 
     # weight graph
     #
     #LeftNode = []
     #RightNode = []
-    #B = nx.Graph()
+    B = nx.Graph()
 
     # Format Nodes for Networkx
     #for v in vertexCoords:
@@ -233,12 +234,14 @@ def main():
     #    else:
     #        RightNode.append(d[1])
     
-    #B.add_nodes_from(LeftNode,bipartite=0)
-    #B.add_nodes_from(RightNode,bipartite=1)
-    
-
-    #B.add_weighted_edges_from(
-    #    [(e[1][0],e[1][1]),weight(g,a,u,b,)) for e in it.product(vertexCoords,transposeCoords) ],weight='weight')
+    B.add_nodes_from(LeftBp,bipartite=0)
+    B.add_nodes_from(RightBp,bipartite=1)
+    B.add_weighted_edges_from(weighted_edges,weight='weight')
+    print(nx.is_connected(B))
+    left,right = nx.bipartite.sets(B)
+    print(left)
+    print(right)
+    print(nx.max_weight_matching(B))
     
     #for r in RightBp:print(r)
     #for l in LeftBp:print(l)
