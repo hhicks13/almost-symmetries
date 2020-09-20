@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from array import*
 import sys
+import time
 from itertools import chain
 import networkx as nx
 import numpy as np
@@ -8,36 +9,57 @@ import random
 import itertools as it
 import networkx as nx
 import re
-from fractions import Fraction
+import math
+import fractions
 from numpy.random import permutation
 from colorama import Fore
 from colorama import Style
 from operator import itemgetter
 
 
+# memo = 1wf = schedule
 
+################################################################### RECONSTRUCTORS  ######################### 
 
-# auxiliary / plotting #
-def bipartiteCoordinates(leftSize,rightSize):
-    dims = [leftSize,rightSize]
-    bpcoords = [(idi, idv) for idi, dim in enumerate(dims) for idv in range(dim)]
+#def scoreFunction():
+    # reconstructs scoreTable from memo1, because scores can collide due to orbit property a*b in H implies a and b in H 
 
-def matrix2coord(input_matrix,shape):
-    grid = [(idx[0],idx[1],input_matrix[idx[0]][idx[1]]) for idx in it.product(*[range(s) for s in shape])]
-    return grid
+#def cosets(dim,costMatrix):
+    # reconstructs cost matrices from memo2, because dims can collide, produces likelihood space
+    # populates with matchings
 
-def asciiTable(input_matrix,rowsize,colsize):
-    # prepare the empty content
+#def orbifold(scoreTable):
+    # assumed that (a,b,f(ab)) is closed:
+    # plots scoreTable. 
+
+######################################################################################## TUPLE CONSTRUCTORS
+
+#def bipartiteCoordinates(leftSize,rightSize):
+#    dims = [leftSize,rightSize]
+#    bpcoords = [(idi, idv) for idi, dim in enumerate(dims) for idv in range(dim)]
+
+#def matrix2coord(input_matrix,shape):
+#    grid = [(idx[0],idx[1],input_matrix[idx[0]][idx[1]]) for idx in it.product(*[range(s) for s in shape])]
+#    return grid
+
+###########################################################################################################
+
+def phi(n):
+    amount = 0        
+    for k in range(1, n + 1):
+        if fractions.gcd(n, k) == 1:
+            amount += 1
+    return amount
+
+def asciiTable(input_list,rowsize,colsize,theta):
+    # stackoverflow recipe #
     rows = rowsize
     cols = colsize
     content = [["."]*cols for _ in range(rows)]
 
-    grid = matrix2coord(input_matrix,[rowsize,colsize])
-
-    # assign values at coordinates as needed (based on your grid)
-
-    #grid = [(4,1,"H"),(6,3,"L"),(5,2,"E"),(4,6,"R"),(7,4,"L"),(6,6,"W"),(3,6,"L"),(2,6,"D"),(5,6,"O")]
-    for (y,x,c) in grid: content[y][x] = c
+    grid =input_list
+    
+    for (y,x,c) in grid: content[y][x] = abs((c-theta)*x-(c+theta)*y)
 
     # build frame
     width       = len(str(max(rows,cols)-1))
@@ -51,10 +73,10 @@ def asciiTable(input_matrix,rowsize,colsize):
     # print grid
     print(frameLine)
     for i,row in enumerate(reversed(content),1):
-        values = " ".join(f"{v:{width}d}" for v in row)
+        values = " ".join(f'{Fore.MAGENTA}{v:>5}{Style.RESET_ALL}' if v%2 else  f'{Fore.CYAN}{v:>5}{Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
-        print(line)
+        print(line,'\n')
     print(frameLine)
 
         # x-axis numbers
@@ -63,132 +85,8 @@ def asciiTable(input_matrix,rowsize,colsize):
     colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
     numLine = numLine.replace("values",colNums)
     print(numLine)
-
-
-
-def printlexBinaryPeriod(g,shapeLeft,shapeRight):
-    for j in it.takewhile(lambda j: j[0][1]==0, it.product(shapeLeft,shapeRight)):
-        w = weight(g,j[0][0]%2==0,j[0][1],j[1][0]%2==0,j[1][1])
-        print(" "*100,f'{Fore.BLUE}{j[0][0]:>08b}{Style.RESET_ALL}' if not j[0][0]%2 else f'{Fore.RED}{j[0][0]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.GREEN}{j[0][1]:>08b}{Style.RESET_ALL}' if j[0][1]==0 else f'{Fore.WHITE}{j[0][1]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.BLUE}{j[1][0]:>08b}{Style.RESET_ALL}' if not j[1][0]%2 else f'{Fore.RED}{j[1][0]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.GREEN}{j[1][1]:>08b}{Style.RESET_ALL}' if j[1][1]==0 else f'{Fore.WHITE}{j[1][1]:>08b}{Style.RESET_ALL}'," "*1,f'{Fore.MAGENTA}{"+"*w}{Style.RESET_ALL}')
-
-#
-#
-# neuron is going to be a list of tuples #
-#
-#
-
-def getNameSpace(n,names):
-    grid0 = [range(n),names]
-    num2namepoint = {j[0]:j for j in it.zip_longest(*grid0)}
-
-    if len(names) == n:
-        return num2namepoint
-    else: return None
-
-#
-# def neuron2factors(g,neuron):
-#
-#
-
-def namepointlist(Nu,namespace):
-    namepoints = [namespace[u] for u in Nu]
-    return namepoints
-
-
-def pair2neighborhood(g,u,v):
-    Nu = [e for e in nx.neighbors(g,u)]
-    Nv = [f for f in nx.neighbors(g,v)]
-    try:
-        Nu.remove(v)
-        Nv.remove(u)
-    except(ValueError,TypeError):
-        print("- no duplicate - neighbors computed")
-
-    lN,rN = sortByLength(Nu,Nv)
-    dim = [len(lN),len(rN)]
-    return lN,rN,dim
-
-def sortByLength(Nu,Nv):
-    leftN = []
-    rightN = []
-    if len(Nu) == len(Nv):
-        return Nu, Nv
-    elif len(Nu) < len(Nv):
-        return Nu, Nv
-    else:
-        return Nv,Nu
-
-
-
-# type inference for weighting
-def weight(g,u,v):
-    # both tuple
-    if type(u) is tuple and type(v) is tuple:
-        return -abs(g.degree(u[0]) - g.degree(v[0]))    
-    elif type(u) is int and type(v) is int:
-        return 0
-    else:
-        return -1
-
-
-# neither tuple
-
-#def pair2hungarianScore(g,u,v):
-
-#def pair2neuron(g,u,v):
-
-#def pair2matching(g,u,v):
-
-#def computeLR(g,u,v):
-
-#def bcm(g,u,v):
-
-#def get_value(v):
-#    try:
-#        return float(v.split(' ')[1])
-#    except IndexError as e:
-#        return int(v[1:])
-
-def main():
-
-    names = []
-
-    with open('data/vnames.txt') as f:
-        lines = f.readlines()
-        for line in lines:
-            for num in re.findall("\d+",line):names.append(int(num))
-    print("maximum vertices",len(names))
     
-    n = int(sys.argv[1])
-    p = float(sys.argv[2])
-    g = nx.erdos_renyi_graph(n,p)
-
-    #
-    u = int(sys.argv[3])
-    v = int(sys.argv[4])
-
-    # namespace #
-    num2namepoint = getNameSpace(n,names[:n])
-    Nu,Nv,dim = pair2neighborhood(g,u,v)
-    print(dim[0])
-    for u in Nu:print(f"{u:>3}","  ",end=" ")
-    print("\n")
-    print(dim[1])
-    for v in Nv:print(f"{v:>3}","  ",end=" ")
-    print("\n")
-    print(f"{Fore.WHITE}  .  {Style.RESET_ALL}"*800,end = str(dim[0])+" + "+str(dim[1])+" by ("+str(dim[0])+"+"+str(dim[1])+")^2\n")
-
-    # build cost matrix / solve weighted assignment # Left then right
-    #
-
-    # for jim --  homework assignement on bipartite set construction. 
-    LeftBp = [ (0,num2namepoint[idv]) if idi == 0 else (0,idv) for idi, vertices in enumerate([Nu,[i for i in range(dim[1]) ]]) for idv in vertices] # counter intuitive, but by doing the same operation twice you save more time
-    RightBp =[ (1,num2namepoint[idv]) if idi == 0 else (1,idv) for idi, vertices in enumerate([Nv,[i for i in range(dim[0]) ]]) for idv in vertices] # 
-    #
-    
+def printMatchingRows(g,dim,LeftBp,RightBp):
     for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
     print("\n")
     for nv in reversed(LeftBp):print(f"{nv[1]}","   ",end=" ")
@@ -199,59 +97,215 @@ def main():
     print("\n")
 
     for e in it.product(LeftBp,RightBp):print("          "*dim[1],"    "*dim[0],f"{Fore.WHITE}{e[0][1]}{Style.RESET_ALL}   {e[1][1]}  ",
-                                              f'{Fore.MAGENTA}{abs(weight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}' if type(e[0][1]) is tuple and type(e[1][1]) is tuple else f'{Fore.CYAN}{abs(weight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}')
+                                              f'{Fore.MAGENTA}{abs(assignweight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}' if type(e[0][1]) is tuple and type(e[1][1]) is tuple else f'{Fore.CYAN}{abs(assignweight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}')
+
+def printColumns(dim,Nu,Nv):
+    print(dim[0])
+    for u in Nu:print(f"{u:>3}","  ",end=" ")
+    print("\n")
+    print(dim[1])
+    for v in Nv:print(f"{v:>3}","  ",end=" ")
+    print("\n")
+    print(f"{Fore.WHITE}  .  {Style.RESET_ALL}"*800,end = str(dim[0])+" + "+str(dim[1])+" by ("+str(dim[0])+"+"+str(dim[1])+")^2\n")
     
-    # for neuron-prime
+def printNeuronStructure(g,shapeLeft,shapeRight):
+    for j in it.takewhile(lambda j: j[0][1]==0, it.product(shapeLeft,shapeRight)):
+        w = assignweight(g,j[0][0]%2==0,j[0][1],j[1][0]%2==0,j[1][1])
+        print(" "*100,f'{Fore.BLUE}{j[0][0]:>08b}{Style.RESET_ALL}' if not j[0][0]%2 else f'{Fore.RED}{j[0][0]:>08b}{Style.RESET_ALL}'," "*1,
+                                                                      f'{Fore.GREEN}{j[0][1]:>08b}{Style.RESET_ALL}' if j[0][1]==0 else f'{Fore.WHITE}{j[0][1]:>08b}{Style.RESET_ALL}'," "*1,
+                                                                      f'{Fore.BLUE}{j[1][0]:>08b}{Style.RESET_ALL}' if not j[1][0]%2 else f'{Fore.RED}{j[1][0]:>08b}{Style.RESET_ALL}'," "*1,
+                                                                      f'{Fore.GREEN}{j[1][1]:>08b}{Style.RESET_ALL}' if j[1][1]==0 else f'{Fore.WHITE}{j[1][1]:>08b}{Style.RESET_ALL}'," "*1,f'{Fore.MAGENTA}{"+"*w}{Style.RESET_ALL}')
+def printMatchingStructure(M): 
+    for edge in M:print(f'{Fore.BLUE}{(lambda x: x[0][1])(e):>3}{Style.RESET_ALL}' if edge[0][0] == 0 else f'{Fore.RED}{(lambda y: y[1][1])(e):>3}{Style.RESET_ALL}','   ',end='')
+    print('\n')
+
+########################################################################################### Printers  ###################################################################################################################################
+
+
+########################################################### Graph Handling
+
+def sortByLength(set1,set2):
+    if len(set1) == len(set2):
+        return set1, set2
+    elif len(set1) < len(set2):
+        return set1, set2
+    else:
+        return set2,set1
+
+def getNameSpace(names,n):
+    grid0 = [range(n),names]
+    num2namepoint = {j[0]:j for j in it.zip_longest(*grid0)}
+
+    if len(names) == n:
+        return num2namepoint
+    else: return None
+
+def pair2neighborhood(g,u,v):
+    Nu = [e for e in nx.neighbors(g,u)]
+    Nv = [f for f in nx.neighbors(g,v)]
+    try:
+        Nu.remove(v)
+        Nv.remove(u)
+    except(ValueError,TypeError):
+        print("")
+    lN,rN = sortByLength(Nu,Nv)
+    dim = [len(lN),len(rN)]
+    return lN,rN,dim
+
+def genMunkresBasis(names,n,g,u,v):
+    num2namepoint = getNameSpace(names[:n],n)
+    Nu,Nv,dim = pair2neighborhood(g,u,v)
+    return num2namepoint,Nu,Nv,dim
+
+# # # # # # graph weights # # # # # # # # # # # # #
+
+def assignweight(g,u,v):
+    # negated here because of networkx requirement
+    if type(u) is tuple and type(v) is tuple:
+        return -abs(g.degree(u[0]) - g.degree(v[0]))    
+    elif type(u) is int and type(v) is int:
+        return 0
+    else:
+        return -1
+    
+def extractweight(g,u,v):
+    if type(u) is tuple and type(v) is tuple:
+        return abs(g.degree(u[0]) - g.degree(v[0]))
+    elif type(u) is int and type(v) is int:
+        return 0
+    else:
+        return 1
+
+#def linearsum(B,M):
+#    linearsum = 0;
+#    for m in M:
+#        e = (m[0][1],m[1][1])
+#        print(e)
+        #linearsum+=abs(B.get_edge_data(*e))
+        #print(linearsum)
+   # return M,linearsum
+        
+        
+    #computes the sum of weights
+#
+#
+#
+#
+#
+# 
+#
+##################################################################################################################################################################################################################################
+
+# unfinished ideas
+
+# memo3 -  pair2neuron(g,u,v):
+# for neuron-prime
     #vertexCoords = [(idi,num2namepoint[idv]) for idi, node in enumerate([Nu,dim]) for idv in node] # one pass
     #dummyCoords = [(idi, idv) if idi == 0 else (idi, str(idv)) for idi, dim in enumerate(reversed(dim)) for idv in range(dim)] # one pass
-    #
-    #
 
-    #
-    # Format Edges for networkx
-    
-    weighted_edges = [ (e[0],e[1],weight(g,e[0][1],e[1][1])) for e in it.product(LeftBp,RightBp) ] #O(n^2)
+# neuron is going to be list of tuples, reconstructed from matchings, want to get neuron cosets for CNN
 
-    #print(weighted_edges)
+#################################################################################################################################################################################################################################
 
-    # weight graph
-    #
-    #LeftNode = []
-    #RightNode = []
+# COMPUTATION
+# capitalized
+
+# order of ops top2down # order of names L2R # names ordered by computational dependency
+
+def buildCostMatrix(num2namepoint,Nu,Nv,dim):
+    LeftBp = [ (0,num2namepoint[idv]) if idi == 0 else (0,idv) for idi, vertices in enumerate([Nu,[i for i in range(dim[1]) ]]) for idv in vertices] # counter intuitive, but by doing the same operation twice you save more time
+    RightBp =[ (1,num2namepoint[idv]) if idi == 0 else (1,idv) for idi, vertices in enumerate([Nv,[i for i in range(dim[0]) ]]) for idv in vertices]
+    #print(len(LeftBp))
+    #print(len(RightBp))
+    return LeftBp,RightBp
+
+def hungarianSolve(g,num2namepoint,Nu,Nv,dim):
+    LeftBp,RightBp = buildCostMatrix(num2namepoint,Nu,Nv,dim)
+    weighted_edges = [ (e[0],e[1],assignweight(g,e[0][1],e[1][1])) for e in it.product(LeftBp,RightBp) ] #O(n^2)
     B = nx.Graph()
-
-    # Format Nodes for Networkx
-    #for v in vertexCoords:
-    #    print(v)
-    #    if v[0] == 0:
-    #        LeftNode.append(v[1])
-    #    else:
-    #        RightNode.append(v[1])
-
-    #for d in transposeCoords:
-    #    if d[0] == 0:
-    #        LeftNode.append(d[1])
-    #    else:
-    #        RightNode.append(d[1])
-    
     B.add_nodes_from(LeftBp,bipartite=0)
     B.add_nodes_from(RightBp,bipartite=1)
-    B.add_weighted_edges_from(weighted_edges,weight='weight')
-    print(nx.is_connected(B))
-    left,right = nx.bipartite.sets(B)
-    #print(left)
-    #print(right)
-    M  = nx.max_weight_matching(B,weight='weight')
-    for edge in M:print(f'{Fore.BLUE}{(lambda x: x[0][1])(e):>3}{Style.RESET_ALL}' if edge[0][0] == 0 else f'{Fore.RED}{(lambda y: y[1][1])(e):>3}{Style.RESET_ALL}','   ',end='')
+    B.add_weighted_edges_from(weighted_edges)
+    M  = nx.max_weight_matching(B,maxcardinality=True)
+    return B,M
 
-    print('\n')
+#def LoopOverPairs(names,n,g):
+    # produces:
+    # memo1 : {score:pair}
+    # memo2 : {dim2matching}
+    # Rho :
+    # for uv permutations in ij :
+    #    Nu,Nv,dim,num2namepoint = getMunkresBasis(names,n,g,u,v)
+    #    M = hungarianflow(g,num2namepoint,Nu,Nv)
+    #    score = computeWeightSum(M)
+    #    
+    #
+    #
+    #
+    #
+
+def main():
     
-    #for r in RightBp:print(r)
-    #for l in LeftBp:print(l)
-    #for f in transposeCoords:print(f)
+    ###################################################### FILE IO # 
+    names = []
+    with open('data/vnames.txt') as f:
+        lines = f.readlines()
+        for line in lines:
+            for num in re.findall("\d+",line):names.append(int(num))
+    print("maximum vertices",len(names))
+    
+    n = int(sys.argv[1])
+    p = float(sys.argv[2])
+    g = nx.erdos_renyi_graph(n,p)
+    u = int(sys.argv[3])
+    v = int(sys.argv[4])
+    #################################################### random graph
+
+    Rho = []
+    memo1 = {} 
+    memo2 = {}
+
+    for u,v in it.product(range(n),range(n)):
+        num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
+        B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
+        #print(M)
+        #print(nx.is_perfect_matching(B,M))
+        linsum = 0
+        for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
+        #print(linsum)
+        Rho.append((u,v,linsum))
+        memo1[linsum] = (u,v)
+        #memo2[dim] = M
+        # return memo1 , memo2 #
+
+    i = 1
+    while(i != -1):
+        i = (i+2)%n
+        print(i)
+        asciiTable(Rho,n,n,i)
+        time.sleep(0.2)
+    
+
+        
+
+    
 
     
     
     
 if __name__ == "__main__":
     main()
+#
+#
+#
+# check for memo collisions
+# properly compute the weight sum
+# find the iterator over all uv permutations which is appropriate.
+# debug memoloop
+# memoloop pass memo1/memo2 to orbif
+#
+# compute orbif:
+# (a,b,f(ab)) with f-table gathered from memoloop
+# plot orbif
+
+# print neuron-cosets based on memo2
