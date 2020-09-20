@@ -127,11 +127,11 @@ def sortByLength(Nu,Nv):
 def weight(g,u,v):
     # both tuple
     if type(u) is tuple and type(v) is tuple:
-        return abs(g.degree(u[0]) - g.degree(v[0]))    
+        return -abs(g.degree(u[0]) - g.degree(v[0]))    
     elif type(u) is int and type(v) is int:
         return 0
     else:
-        return 1
+        return -1
 
 
 # neither tuple
@@ -191,7 +191,7 @@ def main():
     
     for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
     print("\n")
-    for nv in LeftBp:print(f"{nv[1]}"," ",end=" ")
+    for nv in reversed(LeftBp):print(f"{nv[1]}","   ",end=" ")
     print("\n")
     for m in RightBp:print(f"{m[0]:>3}","   ",end=" ")
     print("\n")
@@ -199,7 +199,7 @@ def main():
     print("\n")
 
     for e in it.product(LeftBp,RightBp):print("          "*dim[1],"    "*dim[0],f"{Fore.WHITE}{e[0][1]}{Style.RESET_ALL}   {e[1][1]}  ",
-                                              f'{Fore.MAGENTA}{weight(g,e[0][1],e[1][1]):>5}{Style.RESET_ALL}' if type(e[0][1]) is tuple and type(e[1][1]) is tuple else f'{Fore.CYAN}{weight(g,e[0][1],e[1][1]):>5}{Style.RESET_ALL}')
+                                              f'{Fore.MAGENTA}{abs(weight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}' if type(e[0][1]) is tuple and type(e[1][1]) is tuple else f'{Fore.CYAN}{abs(weight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}')
     
     # for neuron-prime
     #vertexCoords = [(idi,num2namepoint[idv]) for idi, node in enumerate([Nu,dim]) for idv in node] # one pass
@@ -239,9 +239,12 @@ def main():
     B.add_weighted_edges_from(weighted_edges,weight='weight')
     print(nx.is_connected(B))
     left,right = nx.bipartite.sets(B)
-    print(left)
-    print(right)
-    print(nx.max_weight_matching(B))
+    #print(left)
+    #print(right)
+    M  = nx.max_weight_matching(B,weight='weight')
+    for edge in M:print(f'{Fore.BLUE}{(lambda x: x[0][1])(e):>3}{Style.RESET_ALL}' if edge[0][0] == 0 else f'{Fore.RED}{(lambda y: y[1][1])(e):>3}{Style.RESET_ALL}','   ',end='')
+
+    print('\n')
     
     #for r in RightBp:print(r)
     #for l in LeftBp:print(l)
