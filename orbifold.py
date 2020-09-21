@@ -14,6 +14,7 @@ import fractions
 from numpy.random import permutation
 from colorama import Fore
 from colorama import Style
+from colorama import Back
 from operator import itemgetter
 
 
@@ -51,19 +52,19 @@ def phi(n):
             amount += 1
     return amount
 
-def asciiTable(input_list,rowsize,colsize,theta):
+def asciiTable(input_list1,rowsize,colsize,theta):
     # stackoverflow recipe #
     rows = rowsize
     cols = colsize
     content = [["."]*cols for _ in range(rows)]
 
-    grid =input_list
+    grid =input_list1
     
-    for (y,x,c) in grid: content[y][x] = abs((c-theta)*x-(c+theta)*y)
+    for (y,x,c) in grid: content[y][x] = c
 
     # build frame
     width       = len(str(max(rows,cols)-1))
-    contentLine = "# | values |"
+    contentLine = "valuesvaluesvaluesvaluesvalues"
 
     dashes      = "-".join("-"*width for _ in range(cols))
     frameLine   = contentLine.replace("values",dashes)
@@ -71,20 +72,21 @@ def asciiTable(input_list,rowsize,colsize,theta):
     frameLine   = frameLine.replace("| ","+-").replace(" |","-+")
 
     # print grid
-    print(frameLine)
+    #print(frameLine)
+    out = []
     for i,row in enumerate(reversed(content),1):
-        values = " ".join(f'{Fore.MAGENTA}{v:>5}{Style.RESET_ALL}' if v%2 else  f'{Fore.CYAN}{v:>5}{Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v%2==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
-        print(line,'\n')
-    print(frameLine)
+        print(30*" ",line)
+    #print(frameLine)
 
-        # x-axis numbers
+    # x-axis numbers
     numLine = contentLine.replace("|"," ")
     numLine = numLine.replace("#"," "*width)
     colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
     numLine = numLine.replace("values",colNums)
-    print(numLine)
+    #print(numLine)
     
 def printMatchingRows(g,dim,LeftBp,RightBp):
     for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
@@ -260,11 +262,13 @@ def main():
     u = int(sys.argv[3])
     v = int(sys.argv[4])
     #################################################### random graph
-
-    Rho = []
+    
+    k = 2
+    P = []
     memo1 = {} 
     memo2 = {}
-
+    
+    # Generate P #
     for u,v in it.product(range(n),range(n)):
         num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
         B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
@@ -273,17 +277,32 @@ def main():
         linsum = 0
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
         #print(linsum)
-        Rho.append((u,v,linsum))
+        P.append((u,v,linsum))
         memo1[linsum] = (u,v)
         #memo2[dim] = M
         # return memo1 , memo2 #
 
-    i = 1
+    # Algorithm 1 #
+    k = 2
+    Rho1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k else e for e in P ]
+    Rho2 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-1 else e for e in P ]
+    Rho3 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-2 else e for e in P ]
+    Rho4 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-3 else e for e in P ]
+    
+    # 
+        
+    i = 0
     while(i != -1):
-        i = (i+2)%n
-        print(i)
-        asciiTable(Rho,n,n,i)
-        time.sleep(0.2)
+        i = (i+1)%n
+        asciiTable(P,n,n,i+1)
+        time.sleep(0.1)
+        asciiTable(Rho1,n,n,i+2)
+        time.sleep(0.1)
+        asciiTable(Rho2,n,n,i+3)
+        time.sleep(0.1)
+        asciiTable(Rho3,n,n,i+4)
+        time.sleep(0.1)
+        
     
 
         
