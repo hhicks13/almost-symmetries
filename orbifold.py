@@ -89,8 +89,9 @@ def asciiTable(input_list1,rowsize,colsize,theta):
     #print(numLine)
 
 # this should clearly display the evolution #
-def permutationTable(input_list1,rowsize,colsize,theta):
+def permutationTable(input_list1,rowsize,colsize,theta,k):
     # stackoverflow recipe #
+    margin = 0
     rows = rowsize
     cols = colsize
     content = [["."]*cols for _ in range(rows)]
@@ -101,29 +102,29 @@ def permutationTable(input_list1,rowsize,colsize,theta):
 
     # build frame
     width       = len(str(max(rows,cols)-1))
-    contentLine = "valuesvaluesvaluesvaluesvalues"
+    contentLine = "#:values:values:values:values:values:"
 
-    dashes      = "-".join("-"*width for _ in range(cols))
+    dashes      = ".".join("."*width for _ in range(cols))
     frameLine   = contentLine.replace("values",dashes)
-    frameLine   = frameLine.replace("#"," "*width)
-    frameLine   = frameLine.replace("| ","+-").replace(" |","-+")
+    frameLine   = frameLine.replace("#","."*width)
+    frameLine   = frameLine.replace("|",".").replace("|",".")
 
     # print grid
-    #print(frameLine)
+    print(margin*" ",frameLine,"k = ",k)
     out = []
     for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.RED}{Back.BLACK} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
-        print(30*" ",line)
-    #print(frameLine)
+        print(margin*" ",line)
+   # print(margin*" ",frameLine)
 
     # x-axis numbers
-    numLine = contentLine.replace("|"," ")
-    numLine = numLine.replace("#"," "*width)
-    colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
-    numLine = numLine.replace("values",colNums)
-    #print(numLine)
+    #numLine = contentLine.replace("|"," ")
+    #numLine = numLine.replace("#","   "*width)
+    #colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
+    #numLine = numLine.replace("values",colNums)
+    #print((margin-3)*" ",numLine)
     
 def printMatchingRows(g,dim,LeftBp,RightBp):
     for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
@@ -320,25 +321,23 @@ def main():
         # return memo1 , memo2 #
 
     # Algorithm 1 #
-    k = 2
+    k = 3
     Rho1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k else e for e in P ]
     Rho2 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-1 else e for e in P ]
     Rho3 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-2 else e for e in P ]
     Rho4 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-3 else e for e in P ]
     
     # 
-        
+    # modularize
+    #
     i = 0
     while(i != -1):
-        i = (i+1)%n
-        asciiTable(P,n,n,i+1)
-        time.sleep(0.1)
-        asciiTable(Rho1,n,n,i+2)
-        time.sleep(0.1)
-        asciiTable(Rho2,n,n,i+3)
-        time.sleep(0.1)
-        asciiTable(Rho3,n,n,i+4)
-        time.sleep(0.1)
+        i = (i+1)%(n)
+        permutationTable(P,n,n,0,k)
+        #permutationTable(Rho1,n,n,i,k-1)
+        #permutationTable(Rho2,n,n,i,k-2)
+        #permutationTable(Rho3,n,n,i,k-3)
+        time.sleep(0.5)
         
     
 
