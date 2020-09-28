@@ -75,7 +75,44 @@ def asciiTable(input_list1,rowsize,colsize,theta):
     #print(frameLine)
     out = []
     for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v%2==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        line = contentLine.replace("values",values)
+        line = line.replace("#",f"{rows-i:{width}d}")
+        print(30*" ",line)
+    #print(frameLine)
+
+    # x-axis numbers
+    numLine = contentLine.replace("|"," ")
+    numLine = numLine.replace("#"," "*width)
+    colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
+    numLine = numLine.replace("values",colNums)
+    #print(numLine)
+
+# this should clearly display the evolution #
+def permutationTable(input_list1,rowsize,colsize,theta):
+    # stackoverflow recipe #
+    rows = rowsize
+    cols = colsize
+    content = [["."]*cols for _ in range(rows)]
+
+    grid =input_list1
+    
+    for (y,x,c) in grid: content[y][x] = c
+
+    # build frame
+    width       = len(str(max(rows,cols)-1))
+    contentLine = "valuesvaluesvaluesvaluesvalues"
+
+    dashes      = "-".join("-"*width for _ in range(cols))
+    frameLine   = contentLine.replace("values",dashes)
+    frameLine   = frameLine.replace("#"," "*width)
+    frameLine   = frameLine.replace("| ","+-").replace(" |","-+")
+
+    # print grid
+    #print(frameLine)
+    out = []
+    for i,row in enumerate(reversed(content),1):
+        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
         print(30*" ",line)
