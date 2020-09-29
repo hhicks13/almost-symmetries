@@ -64,7 +64,7 @@ def asciiTable(input_list1,rowsize,colsize,theta):
 
     # build frame
     width       = len(str(max(rows,cols)-1))
-    contentLine = "valuesvaluesvaluesvaluesvalues"
+    contentLine = "#|values|"
 
     dashes      = "-".join("-"*width for _ in range(cols))
     frameLine   = contentLine.replace("values",dashes)
@@ -75,7 +75,7 @@ def asciiTable(input_list1,rowsize,colsize,theta):
     #print(frameLine)
     out = []
     for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v%2==1 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
         print(30*" ",line)
@@ -102,7 +102,7 @@ def permutationTable(input_list1,rowsize,colsize,theta,k):
 
     # build frame
     width       = len(str(max(rows,cols)-1))
-    contentLine = "#:values:values:values:values:values:"
+    contentLine = "#:values:values:values:"
 
     dashes      = ".".join("."*width for _ in range(cols))
     frameLine   = contentLine.replace("values",dashes)
@@ -113,7 +113,7 @@ def permutationTable(input_list1,rowsize,colsize,theta,k):
     print(margin*" ",frameLine,"k = ",k)
     out = []
     for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.RED}{Back.BLACK} {v} {Style.RESET_ALL}' if v==0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.RED}{Back.BLACK} {v} {Style.RESET_ALL}' if v%2==0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
         print(margin*" ",line)
@@ -288,7 +288,7 @@ def hungarianSolve(g,num2namepoint,Nu,Nv,dim):
 
 def main():
     
-    ###################################################### FILE IO # 
+    ########################################################################## FILE IO # 
     names = []
     with open('data/vnames.txt') as f:
         lines = f.readlines()
@@ -301,14 +301,15 @@ def main():
     g = nx.erdos_renyi_graph(n,p)
     u = int(sys.argv[3])
     v = int(sys.argv[4])
-    #################################################### random graph
+    ###################################################################### Random Graph #
     
-    k = 2
-    P = []
+    k = 5
+    P0 = []
     memo1 = {} 
     memo2 = {}
+    Rho = {} # Rho is indexed by budget
     
-    # Generate P #
+    ######################################################################## Generate P #
     for u,v in it.product(range(n),range(n)):
         num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
         B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
@@ -317,39 +318,38 @@ def main():
         linsum = 0
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
         #print(linsum)
-        P.append((u,v,linsum))
+        P0.append((u,v,linsum))
         memo1[linsum] = (u,v)
         #memo2[dim] = M
         # return memo1 , memo2 #
 
-    # Algorithm 1 #
-    k = 3
-    Rho1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k else e for e in P ]
-    Rho2 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-1 else e for e in P ]
-    Rho3 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-2 else e for e in P ]
-    Rho4 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k-3 else e for e in P ]
-    
-    # 
-    # modularize
-    #
+    ############################################# Refinement Algorithm 1: DegreeDifElim #
+    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k else e for e in P0 ]
+
+
+    ############################################# Refinement Algorithm 2: JimElim #######
+    Rho[k+1] = P1
+    for t in range(k):
+        budget = k - t
+        print(budget)
+        Rho[budget] = [ (e[0],e[1],-1) if e[2]  > 2*budget else e for e in Rho[budget+1] ]
+    del Rho[k+1]
+
+
+    ############################################# Algorithm 3 ###########################
+
+
+    ############################################# Print Loop ############################
+    sleeptime = 0.5
     i = 0
     while(i != -1):
         i = (i+1)%(n)
-        permutationTable(P,n,n,0,k)
-        #permutationTable(Rho1,n,n,i,k-1)
-        #permutationTable(Rho2,n,n,i,k-2)
-        #permutationTable(Rho3,n,n,i,k-3)
-        time.sleep(0.5)
-        
-    
+        for t in range(k):
+            budget = k-t
+            permutationTable(Rho[budget],n,n,0,budget)
+        time.sleep(sleeptime)
 
-        
 
-    
-
-    
-    
-    
 if __name__ == "__main__":
     main()
 #
