@@ -110,10 +110,10 @@ def permutationTable(input_list1,rowsize,colsize,theta,k):
     frameLine   = frameLine.replace("|",".").replace("|",".")
 
     # print grid
-    print(margin*" ",frameLine,"k = ",k)
+    print(margin*" ",frameLine,"budget = ",k)
     out = []
     for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.RED}{Back.BLACK} {v} {Style.RESET_ALL}' if v%2==0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
+        values = "".join(f'{Fore.RED}{Back.BLACK} {"X"} {Style.RESET_ALL}' if v<0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
         line = contentLine.replace("values",values)
         line = line.replace("#",f"{rows-i:{width}d}")
         print(margin*" ",line)
