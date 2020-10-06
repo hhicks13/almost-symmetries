@@ -396,9 +396,8 @@ def main():
     #                                                     #
     LowerBoundMatrix = {}
     for scale in range(Tau):
-        D = []
-        for edgelist in Rho[scale]:
-            for (y,x,c) in edgeList: D[y][x] = c
+        D = [[0]*n for _ in range(n)]
+        for (y,x,c) in Rho[scale]:D[y][x] = c
         LowerBoundMatrix[scale] = D 
     
 
@@ -420,6 +419,7 @@ def main():
     from sklearn.manifold import MDS
     model = MDS(n_components=2, dissimilarity='precomputed', random_state=1)
     D = LowerBoundMatrix[1]
+    
     #out = model.fit_transform(D)
     #plt.scatter(out[:, 0], out[:, 1], **colorize)
     #plt.axis('equal');
