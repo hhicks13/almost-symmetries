@@ -305,14 +305,15 @@ def main():
     
     Tau = int(sys.argv[5])
     P0 = []
-    memo1 = {} 
-    memo2 = {}
+    #memo1 = {} 
+    #memo2 = {}
     Rho = {} # Rho is indexed by budget
     
     ######################################################################## Generate P #
+    # edges sorted here
     for u,v in it.product(range(n),range(n)):
         num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
-        #flow
+        #
         B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
         #print(M)
         #print(nx.is_perfect_matching(B,M))
@@ -320,60 +321,94 @@ def main():
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
         #print(linsum)
         P0.append((u,v,linsum))
-        memo1[linsum] = (u,v)
+        #memo1[linsum] = (u,v)
         #memo2[dim] = M
         # return memo1 , memo2 #
 
     ############################################# Refinement Algorithm 1: DegreeDifElim #
-    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > k else e for e in P0 ]
+    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > Tau else e for e in P0 ]
 
 
     ############################################# Refinement Algorithm 2: JimElim #######
-    Rho[k+1] = P1
+    Rho[Tau+1] = P1
     Rho2 = {}
-    memo = {}
+    sample = {}
     casualties = 0
     t = 0
-    # change budget to survivors 
+    # casualties may not exceed dimensions of P
+    # however since casualties increase exponentially, this should not be a huge computational burden
     while casualties < n*(n-1):
         
         # make permutation graph
+        #
+        #
         epsilon = Tau - t
         Rho[epsilon] = [ (e[0],e[1],-1) if e[2]  > 2*epsilon else e for e in Rho[epsilon+1] ]
-        # zero matrix 
+        # zero matrix
+        Rho2[epsilon] = []
         delta = [(e[0],e[1],0) for e in Rho[epsilon]]
         #for e in Rho[budget]:print(e)
-        
-        #pairs memoized
+        #
+        # add delta to Rho (while pairs memoized ) 
         for e in Rho[epsilon]:
             if e[2] == -1:
                 for i in range(n):
+                    #L
                     delta[i*n+e[1]] = (e[0],e[1],e[2]+2)
                     delta[e[0]*n+i] = (e[0],e[1],e[2]+2)
-                memo[(e[0],e[1])] = delta
-        #check to make sure copy works
-        
-        casualties = len(memo.keys())
-        print(casualties)
+                    #R
+                    delta[i*n + e[0]] = (e[0],e[1],e[2]+2)
+                    delta[e[1]*n+i] =(e[0],e[1],e[2]+2)
+                sample[(e[0],e[1])] = delta
+                Rho2[epsilon].append(delta)
+       #########################################################
+
+       # Rho+delta = lowerbound
+       # 1 , 2, 3, .... .        n
+       # # # # L'# ##L # # # # # # R+L=n cost matrix
+       #       #
+       # v2d   #  v2v
+       # # # # L- # #L # # # # # #
+       #       #  2   ^    ^ d2v after
+       # d2d   #  < # # # # # # #
+       #       #    #    d2v before
+       #       #  < #                 cost matrix realignment, creates exactly 1 more '2'.
+       #       #    #
+       #       R+   R
+       
+       
+       # 
+        casualties = len(sample.keys())
+        print(casualties," Eliminations at threshold ",epsilon)
+        #increment timer
         t+=1
-    del Rho[k+1]
+    del Rho[Tau+1]
+    # Tau decreases, t increases # ######################################################## Jim Elim 
+    #                                   #
+    #  Rho[epsilon] contains sparse     # 
+    #                                   #
+    #  Rho2 contains rich               #
+    #                                   #
+    #  # # # # # # ## # # # # # # # # # #
+
+    #                                                     #
+    # Lower Bound Matrix is format conversion to matrices #
+    #                                                     #
+    LowerBoundMatrix = {}
+    for scale in range(Tau):
+        D = []
+        for edgelist in Rho[scale]:
+            for (y,x,c) in edgeList: D[y][x] = c
+        LowerBoundMatrix[scale] = D 
+    
 
 
     ############################################# Algorithm 3 ###########################
-    # how does the graph change if you remove an edge.
-    #
-    # R = BinaryCopy(Rho[epsilon])
-    #
-    # w_ij = 1 - |Ni intersect Nj |/| Ni union Nj | <--- distance from center
-    # 
-    # Distance Matrix
     #
     # Apply multidimensional scaling
-    #
+    # LowerBoundMatrix[scale] is a distance matrix
     #
     ############################################# matplot lib ############################
-
-    
 
     from matplotlib import pyplot as plt
     from matplotlib.collections import LineCollection
@@ -382,70 +417,12 @@ def main():
     from sklearn.metrics import euclidean_distances
     from sklearn.decomposition import PCA
 
-    EPSILON = np.finfo(np.float32).eps
-    n_samples = 20
-    seed = np.random.RandomState(seed=3)
-    X_true = seed.randint(0, 20, 2 * n_samples).astype(np.float)
-    X_true = X_true.reshape((n_samples, 2))
-    # Center the data
-    X_true -= X_true.mean()
-
-    similarities = euclidean_distances(X_true)
-
-    # Add noise to the similarities
-    noise = np.random.rand(n_samples, n_samples)
-    noise = noise + noise.T
-    noise[np.arange(noise.shape[0]), np.arange(noise.shape[0])] = 0
-    similarities += noise
-
-    mds = manifold.MDS(n_components=2, max_iter=3000, eps=1e-9, random_state=seed,
-                   dissimilarity="precomputed", n_jobs=1)
-    pos = mds.fit(similarities).embedding_
-
-    nmds = manifold.MDS(n_components=2, metric=False, max_iter=3000, eps=1e-12,
-                    dissimilarity="precomputed", random_state=seed, n_jobs=1,
-                    n_init=1)
-    npos = nmds.fit_transform(similarities, init=pos)
-
-    # Rescale the data
-    pos *= np.sqrt((X_true ** 2).sum()) / np.sqrt((pos ** 2).sum())
-    npos *= np.sqrt((X_true ** 2).sum()) / np.sqrt((npos ** 2).sum())
-
-    # Rotate the data
-    clf = PCA(n_components=2)
-    X_true = clf.fit_transform(X_true)
-
-    pos = clf.fit_transform(pos)
-
-    npos = clf.fit_transform(npos)
-
-    fig = plt.figure(1)
-ax = plt.axes([0., 0., 1., 1.])
-
-s = 100
-plt.scatter(X_true[:, 0], X_true[:, 1], color='navy', s=s, lw=0,
-            label='True Position')
-plt.scatter(pos[:, 0], pos[:, 1], color='turquoise', s=s, lw=0, label='MDS')
-plt.scatter(npos[:, 0], npos[:, 1], color='darkorange', s=s, lw=0, label='NMDS')
-plt.legend(scatterpoints=1, loc='best', shadow=False)
-
-similarities = similarities.max() / (similarities + EPSILON) * 100
-np.fill_diagonal(similarities, 0)
-# Plot the edges
-start_idx, end_idx = np.where(pos)
-# a sequence of (*line0*, *line1*, *line2*), where::
-#            linen = (x0, y0), (x1, y1), ... (xm, ym)
-segments = [[X_true[i, :], X_true[j, :]]
-            for i in range(len(pos)) for j in range(len(pos))]
-values = np.abs(similarities)
-lc = LineCollection(segments,
-                    zorder=0, cmap=plt.cm.Blues,
-                    norm=plt.Normalize(0, values.max()))
-lc.set_array(similarities.flatten())
-lc.set_linewidths(np.full(len(segments), 0.5))
-ax.add_collection(lc)
-
-plt.show()
+    from sklearn.manifold import MDS
+    model = MDS(n_components=2, dissimilarity='precomputed', random_state=1)
+    D = LowerBoundMatrix[1]
+    #out = model.fit_transform(D)
+    #plt.scatter(out[:, 0], out[:, 1], **colorize)
+    #plt.axis('equal');
     
     
         
