@@ -11,6 +11,7 @@ import networkx as nx
 import re
 import math
 import fractions
+import seaborn as sns
 
 from numpy.random import permutation
 from colorama import Fore
@@ -304,6 +305,21 @@ def main():
     #fig, axes = plt.subplots(10,10, figsize=(8,8)))
     #for i,ax in enumerate(axes.flat):
     #    ax.imshow(images[i])
+    plt.subplots(figsize = (n,n)) # width x height
+    sns.heatmap(images[3]) # row, column, position
+    #ax2 = fig.add_subplot(3, 3, 2)
+    #ax3 = fig.add_subplot(3, 3, 3)
+    #ax4 = fig.add_subplot(3, 3, 4)
+    #ax5 = fig.add_subplot(3, 3, 5)
+
+# We use ax parameter to tell seaborn which subplot to use for this plot
+    sns.color_palette("rocket", as_cmap=True)
+    #sns.heatmap(data=images[3], ax=ax1, cmap = "rocket", square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
+    #sns.heatmap(data=subset2.corr(), ax=ax2, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
+    #sns.heatmap(data=subset3.corr(), ax=ax3, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
+    #sns.heatmap(data=subset4.corr(), ax=ax4, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
+    #sns.heatmap(data=subset5.corr(), ax=ax5, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
+    plt.show()
         
     
     
