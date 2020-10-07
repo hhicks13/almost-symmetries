@@ -18,6 +18,16 @@ from colorama import Style
 from colorama import Back
 from operator import itemgetter
 
+from matplotlib import pyplot as plt
+from matplotlib.collections import LineCollection
+
+from sklearn import manifold
+from sklearn.metrics import euclidean_distances
+from sklearn.decomposition import PCA
+
+from sklearn.manifold import MDS
+from mpl_toolkits import mplot3d
+
 def asciiTable(input_list1,rowsize,colsize,theta):
     # stackoverflow recipe #
     rows = rowsize
@@ -203,24 +213,16 @@ def hungarianSolve(g,num2namepoint,Nu,Nv,dim):
     M  = nx.max_weight_matching(B,maxcardinality=True)
     return B,M
 
-#def LoopOverPairs(names,n,g):
-    # produces:
-    # memo1 : {score:pair}
-    # memo2 : {dim2matching}
-    # Rho :
-    # for uv permutations in ij :
-    #    Nu,Nv,dim,num2namepoint = getMunkresBasis(names,n,g,u,v)
-    #    M = hungarianflow(g,num2namepoint,Nu,Nv)
-    #    score = computeWeightSum(M)
-    #    
-    #
-    #
-    #
-    #
+def random_projection(X, dimension=3, rseed=42):
+    assert dimension >= X.shape[1]
+    rng = np.random.RandomState(rseed)
+    C = rng.randn(dimension, dimension)
+    e, V = np.linalg.eigh(np.dot(C, C.T))
+    return np.dot(X, V[:X.shape[1]])
 
 def main():
     
-    ########################################################################## FILE IO # 
+    ########################################################################## FILE IO #
     names = []
     with open('data/vnames.txt') as f:
         lines = f.readlines()
@@ -369,12 +371,12 @@ def main():
         for Delta in DELTAS[epsilon]:
             D_base.append(Delta)
         P_MATRICES.append(D_base)
-    ctr = 0
-    for path in P_MATRICES:
-        print("budget = ",ctr)
-        ctr+=1
-        for matrix in path:
-            print(matrix)
+    ctr = Tau
+    #for path in P_MATRICES:
+    #    print("budget = ",ctr)
+    #    ctr-=1
+    #    for matrix in path:
+    #        print(matrix)
 
 
     ############################################# Algorithm 3 ###########################
@@ -384,20 +386,17 @@ def main():
     #
     ############################################# matplot lib ############################
 
-    from matplotlib import pyplot as plt
-    from matplotlib.collections import LineCollection
+    model = MDS(n_components=2, dissimilarity='precomputed', random_state=0)
 
-    from sklearn import manifold
-    from sklearn.metrics import euclidean_distances
-    from sklearn.decomposition import PCA
+    D = BASE[2]
+    
 
-    from sklearn.manifold import MDS
-    model = MDS(n_components=2, dissimilarity='precomputed', random_state=1)
-    
-    
-    #out = model.fit_transform(D)
-    #plt.scatter(out[:, 0], out[:, 1], **colorize)
-    #plt.axis('equal');
+    #plt.matshow(D, zorder=2, cmap='Blues', interpolation='nearest')
+    #plt.colorbar()
+    out = model.fit_transform(D)
+    plt.scatter(out[:, 0], out[:, 1])
+    plt.axis('equal');
+    plt.show()
     
     
         
