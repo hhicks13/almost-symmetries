@@ -257,9 +257,7 @@ def main():
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
         print(dim)
         P0.append((u,v,linsum))
-        #memo1[linsum] = (u,v)
         #memo2[dim] = M
-        # return memo1 , memo2 #
     
     print("P generated on ",n,"nodes")
 
@@ -270,7 +268,7 @@ def main():
     ############################################# Refinement Algorithm 2: JimElim #######
     print("Jim Elim")
     Rho[Tau+1] = P1
-    Rho2 = {}
+    DELTAS = {}
     killed = {}
     eliminations = 0
     
@@ -282,32 +280,44 @@ def main():
     # however since casualties increase exponentially, this should not be a huge computational burden
     
     while eliminations < n*(n-1):
-        _hc = []
         epsilon = Tau- t
         # Eliminate if over budget
         Rho[epsilon] = [ (e[0],e[1],-1) if e[2]  > 2*epsilon else e for e in Rho[epsilon+1] ]
 
         # zero matrix
-        Rho2[epsilon] = []
-        Delta = [(e[0],e[1],0) for e in Rho[epsilon]]
+        DELTAS[epsilon] = []
+        Delta = [[0]*n for _ in range(n)]
+
         for e in Rho[epsilon]:print(f'{Fore.BLACK}{Back.RED} {"x"} {Style.RESET_ALL}' if e[2]<0 else  f'{e[2]} {Style.RESET_ALL}',end=' ')
         print('\n')
         #
         # add delta to Rho (while pairs memoized ) O(e*n)
         for e in Rho[epsilon]:
-            
         ######################################################## compute delta sum
-            if e[2] == -1:
+            if e[2] == -1 and e[0] != e[1]:
+                killed[(e[0],e[1])] = True
+                killed[(e[1],e[0])] = True
+                deleted = killed.keys()
                 for i in range(n):
+                    L = Rho[epsilon][e[0]*n+i]
+                    R = Rho[epsilon][e[1]*n+i]
+                    #print(L)
+                    #print(R)
+                    #
+                    # no redundancy
                     #L
-                    Delta[i*n+e[1]] = (e[0],e[1],e[2]+2)
-                    Delta[e[0]*n+i] = (e[0],e[1],e[2]+2)
+                    if not (L[0],L[1]) in deleted:Delta[L[0]][L[1]] = Delta[L[0]][L[1]]+2
+                    if not (L[1],L[0]) in deleted:Delta[L[1]][L[0]] = Delta[L[1]][L[0]]+2
                     #R
-                    Delta[i*n + e[0]] = (e[0],e[1],e[2]+2)
-                    Delta[e[1]*n+i] =(e[0],e[1],e[2]+2)
-                
-                killed[(e[0],e[1])] = Delta
-                Rho2[epsilon].append(Delta)
+                    if not (R[0],R[1]) in deleted:Delta[R[0]][R[1]] = Delta[R[0]][R[1]]+2
+                    if not (R[1],R[0]) in deleted:Delta[R[1]][R[0]] = Delta[R[1]][R[0]]+2
+                    # remove diagonals and duplicates
+                Delta[e[0]][e[0]] = 0
+                Delta[e[1]][e[1]] = 0
+
+                # print Delta
+                #print(np.asarray(Delta))
+                DELTAS[epsilon].append(np.asarray(Delta))
 
         print('\n')
                 
@@ -318,8 +328,8 @@ def main():
        # # # # L'# ##L # # # # # # R+L=n cost matrix
        #       #
        # v2d   #  v2v
-       # # # # L- # #L # # # # # #
-       #       #  2   ^    ^ d2v after
+       # # # # L- # #L # # # # # # due to hungariansolve there must be exactly 2 dummies in this alley. 
+       #       #     ^ dummies here ^ d2v after
        # d2d   #  < # # # # # # #
        #       #    #    d2v before
        #       #  < #                 cost matrix realignment, creates exactly 1 more '2'.
@@ -330,50 +340,41 @@ def main():
        # 
         eliminations = len(killed.keys())
         _worstcase.append(eliminations)
-        print(eliminations," Eliminations at budget: ",epsilon)
+        #print(eliminations," Eliminations at budget: ",epsilon)
         #increment counter
         t+=1
     del Rho[Tau+1]
     
     # Tau decreases, t increases # ######################################################## Jim Elim 
-    #                                   #
-    #  Rho[epsilon] contains sparse     # 
-    #                                   #
-    #  Rho2 contains rich               #
-    #                                   #
-    #  # # # # # # ## # # # # # # # # # #
-
-    #                                               #
     #  Base image indexed by threshold              #
     #  Base image + sum of deltas  = sparse         #
     #                                               #
 
     #
     # BASE[epsilon] = P at budget epsilon
-    #
+    # convert to Numpy matrix
     BASE = {}
     for ctr in range(Tau):
         epsilon = Tau - ctr
         _matrix = [[0]*n for _ in range(n)] # n x n table
         for (y,x,score) in Rho[epsilon]:_matrix[y][x] = score
         BASE[epsilon] = _matrix 
-    #
-    # DELTAS[epsilon] = [ Delta0, Delta1, .... ]
-    #
-    DELTAS = {}
-    for ctr in range(Tau):
-        epsilon  = Tau - ctr
-        _Deltas = []
-        for _DeltaList in Rho2[epsilon]:
-            # make single matrix
-            _matrix = [[0]*n for _ in range(n)]
-            for (y,x,score) in _DeltaList:_matrix[y][x] = score
-            # append to _Deltas
-            _Deltas.append(_matrix)
-        DELTAS[epsilon] = _Deltas
+
     
-    # plot Base and Deltas to verify.
-    print(BASE[1])
+    # plot Base and Deltas to verify
+    P_MATRICES = []
+    for epsilon in range(Tau,0,-1):
+        D_base = []
+        D_base.append(np.asarray(BASE[epsilon]))
+        for Delta in DELTAS[epsilon]:
+            D_base.append(Delta)
+        P_MATRICES.append(D_base)
+    ctr = 0
+    for path in P_MATRICES:
+        print("budget = ",ctr)
+        ctr+=1
+        for matrix in path:
+            print(matrix)
 
 
     ############################################# Algorithm 3 ###########################
