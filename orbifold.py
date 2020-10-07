@@ -290,13 +290,12 @@ def main():
         # zero matrix
         Rho2[epsilon] = []
         Delta = [(e[0],e[1],0) for e in Rho[epsilon]]
-        for e in Rho[epsilon]:print(e[2]," ",sep=' ')
+        for e in Rho[epsilon]:print(f'{Fore.BLACK}{Back.RED} {"x"} {Style.RESET_ALL}' if e[2]<0 else  f'{e[2]} {Style.RESET_ALL}',end=' ')
         print('\n')
         #
         # add delta to Rho (while pairs memoized ) O(e*n)
         for e in Rho[epsilon]:
-            print(e[2],sep=' ')
-            print('\n')
+            
         ######################################################## compute delta sum
             if e[2] == -1:
                 for i in range(n):
@@ -309,6 +308,8 @@ def main():
                 
                 killed[(e[0],e[1])] = Delta
                 Rho2[epsilon].append(Delta)
+
+        print('\n')
                 
        #########################################################
 
@@ -371,7 +372,8 @@ def main():
             _Deltas.append(_matrix)
         DELTAS[epsilon] = _Deltas
     
-        
+    # plot Base and Deltas to verify.
+    print(BASE[1])
 
 
     ############################################# Algorithm 3 ###########################
@@ -390,7 +392,7 @@ def main():
 
     from sklearn.manifold import MDS
     model = MDS(n_components=2, dissimilarity='precomputed', random_state=1)
-    D = LowerBoundMatrix[1]
+    
     
     #out = model.fit_transform(D)
     #plt.scatter(out[:, 0], out[:, 1], **colorize)
