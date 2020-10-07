@@ -28,116 +28,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import MDS
 from mpl_toolkits import mplot3d
 
-def asciiTable(input_list1,rowsize,colsize,theta):
-    # stackoverflow recipe #
-    rows = rowsize
-    cols = colsize
-    content = [["."]*cols for _ in range(rows)]
 
-    grid =input_list1
-    
-    for (y,x,c) in grid: content[y][x] = c
-
-    # build frame
-    width       = len(str(max(rows,cols)-1))
-    contentLine = "#|values|"
-
-    dashes      = "-".join("-"*width for _ in range(cols))
-    frameLine   = contentLine.replace("values",dashes)
-    frameLine   = frameLine.replace("#"," "*width)
-    frameLine   = frameLine.replace("| ","+-").replace(" |","-+")
-
-    # print grid
-    #print(frameLine)
-    out = []
-    for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.BLACK}{Back.BLUE} {v} {Style.RESET_ALL}' if v%2==1 else  f'{Fore.BLACK}{Back.CYAN} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
-        line = contentLine.replace("values",values)
-        line = line.replace("#",f"{rows-i:{width}d}")
-        print(30*" ",line)
-    #print(frameLine)
-
-    # x-axis numbers
-    numLine = contentLine.replace("|"," ")
-    numLine = numLine.replace("#"," "*width)
-    colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
-    numLine = numLine.replace("values",colNums)
-    #print(numLine)
-
-# this should clearly display the evolution #
-def permutationTable(input_list1,rowsize,colsize,theta,k):
-    # stackoverflow recipe #
-    margin = 0
-    rows = rowsize
-    cols = colsize
-    content = [["."]*cols for _ in range(rows)]
-
-    grid =input_list1
-    
-    for (y,x,c) in grid: content[y][x] = c
-
-    # build frame
-    width       = len(str(max(rows,cols)-1))
-    contentLine = "#:values:values:values:"
-
-    dashes      = ".".join("."*width for _ in range(cols))
-    frameLine   = contentLine.replace("values",dashes)
-    frameLine   = frameLine.replace("#","."*width)
-    frameLine   = frameLine.replace("|",".").replace("|",".")
-
-    # print grid
-    print(margin*" ",frameLine,"budget = ",k)
-    out = []
-    for i,row in enumerate(reversed(content),1):
-        values = "".join(f'{Fore.RED}{Back.BLACK} {"X"} {Style.RESET_ALL}' if v<0 else  f'{Fore.BLACK}{Back.WHITE} {v} {Style.RESET_ALL}'for v in it.islice(it.cycle(row),theta,theta+len(row)))
-        line = contentLine.replace("values",values)
-        line = line.replace("#",f"{rows-i:{width}d}")
-        print(margin*" ",line)
-   # print(margin*" ",frameLine)
-
-    # x-axis numbers
-    #numLine = contentLine.replace("|"," ")
-    #numLine = numLine.replace("#","   "*width)
-    #colNums = " ".join(f"{i:<{width}d}" for i in range(cols))
-    #numLine = numLine.replace("values",colNums)
-    #print((margin-3)*" ",numLine)
-    
-def printMatchingRows(g,dim,LeftBp,RightBp):
-    for n in LeftBp:print(f"{n[0]:>3}","   ",end=" ")
-    print("\n")
-    for nv in reversed(LeftBp):print(f"{nv[1]}","   ",end=" ")
-    print("\n")
-    for m in RightBp:print(f"{m[0]:>3}","   ",end=" ")
-    print("\n")
-    for mv in RightBp:print(f"{mv[1]}"," ",end=" ")
-    print("\n")
-
-    for e in it.product(LeftBp,RightBp):print("          "*dim[1],"    "*dim[0],f"{Fore.WHITE}{e[0][1]}{Style.RESET_ALL}   {e[1][1]}  ",
-                                              f'{Fore.MAGENTA}{abs(assignweight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}' if type(e[0][1]) is tuple and type(e[1][1]) is tuple else f'{Fore.CYAN}{abs(assignweight(g,e[0][1],e[1][1])):>5}{Style.RESET_ALL}')
-
-def printColumns(dim,Nu,Nv):
-    print(dim[0])
-    for u in Nu:print(f"{u:>3}","  ",end=" ")
-    print("\n")
-    print(dim[1])
-    for v in Nv:print(f"{v:>3}","  ",end=" ")
-    print("\n")
-    print(f"{Fore.WHITE}  .  {Style.RESET_ALL}"*800,end = str(dim[0])+" + "+str(dim[1])+" by ("+str(dim[0])+"+"+str(dim[1])+")^2\n")
-    
-def printNeuronStructure(g,shapeLeft,shapeRight):
-    for j in it.takewhile(lambda j: j[0][1]==0, it.product(shapeLeft,shapeRight)):
-        w = assignweight(g,j[0][0]%2==0,j[0][1],j[1][0]%2==0,j[1][1])
-        print(" "*100,f'{Fore.BLUE}{j[0][0]:>08b}{Style.RESET_ALL}' if not j[0][0]%2 else f'{Fore.RED}{j[0][0]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.GREEN}{j[0][1]:>08b}{Style.RESET_ALL}' if j[0][1]==0 else f'{Fore.WHITE}{j[0][1]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.BLUE}{j[1][0]:>08b}{Style.RESET_ALL}' if not j[1][0]%2 else f'{Fore.RED}{j[1][0]:>08b}{Style.RESET_ALL}'," "*1,
-                                                                      f'{Fore.GREEN}{j[1][1]:>08b}{Style.RESET_ALL}' if j[1][1]==0 else f'{Fore.WHITE}{j[1][1]:>08b}{Style.RESET_ALL}'," "*1,f'{Fore.MAGENTA}{"+"*w}{Style.RESET_ALL}')
-def printMatchingStructure(M): 
-    for edge in M:print(f'{Fore.BLUE}{(lambda x: x[0][1])(e):>3}{Style.RESET_ALL}' if edge[0][0] == 0 else f'{Fore.RED}{(lambda y: y[1][1])(e):>3}{Style.RESET_ALL}','   ',end='')
-    print('\n')
-
-
-##################################################################################################################################################################################################################################
-##################################################################################################################################################################################################################################
 ########################################################### Graph Handling
 
 def sortByLength(set1,set2):
@@ -213,43 +104,8 @@ def hungarianSolve(g,num2namepoint,Nu,Nv,dim):
     M  = nx.max_weight_matching(B,maxcardinality=True)
     return B,M
 
-def random_projection(X, dimension=3, rseed=42):
-    assert dimension >= X.shape[1]
-    rng = np.random.RandomState(rseed)
-    C = rng.randn(dimension, dimension)
-    e, V = np.linalg.eigh(np.dot(C, C.T))
-    return np.dot(X, V[:X.shape[1]])
-
-def main():
-    
-    ########################################################################## FILE IO #
-    names = []
-    with open('data/vnames.txt') as f:
-        lines = f.readlines()
-        for line in lines:
-            for num in re.findall("\d+",line):names.append(int(num))
-    print("maximum vertices",len(names))
-    
-    n = int(sys.argv[1])
-    p = float(sys.argv[2])
-    g = nx.erdos_renyi_graph(n,p)
-    
-
-    # for any counter, ctr, epsilon = Tau - t
-    
-    
-    ###################################################################### Random Graph #
-    
-    Tau = int(sys.argv[3])
+def generate_P0(n,names,g):
     P0 = []
-    #memo1 = {} 
-    #memo2 = {}
-    Rho = {} # Rho is indexed by budget
-    
-    ######################################################################## Generate P #
-    print("Generate P")
-    
-    # edges sorted here O(n^2)
     for u,v in it.product(range(n),range(n)):
         num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
         #
@@ -259,29 +115,25 @@ def main():
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
         print(dim)
         P0.append((u,v,linsum))
-        #memo2[dim] = M
-    
-    print("P generated on ",n,"nodes")
+    return P0
 
-    ############################################# Refinement Algorithm 1: DegreeDifElim #
-    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > Tau else e for e in P0 ]
-
-
+def elim2_preprocess(n,Tau,P1):
+    Rho = {}
     ############################################# Refinement Algorithm 2: JimElim #######
-    print("Jim Elim")
     Rho[Tau+1] = P1
     DELTAS = {}
     killed = {}
-    eliminations = 0
+    eliminations_0 = 0
     
-    # this encodes how many times JimElim will have to repeat itself by length/index, and the respective elimination count
+    
     _worstcase = []
+    images = []
     
     t = 0
     # casualties may not exceed dimensions of P
     # however since casualties increase exponentially, this should not be a huge computational burden
     
-    while eliminations < n*(n-1):
+    while eliminations_0 < n*(n-1):
         epsilon = Tau- t
         # Eliminate if over budget
         Rho[epsilon] = [ (e[0],e[1],-1) if e[2]  > 2*epsilon else e for e in Rho[epsilon+1] ]
@@ -318,7 +170,7 @@ def main():
                 Delta[e[1]][e[1]] = 0
 
                 # print Delta
-                #print(np.asarray(Delta))
+                images.append(np.asarray(Delta))
                 DELTAS[epsilon].append(np.asarray(Delta))
 
         print('\n')
@@ -330,78 +182,131 @@ def main():
        # # # # L'# ##L # # # # # # R+L=n cost matrix
        #       #
        # v2d   #  v2v
-       # # # # L- # #L # # # # # # due to hungariansolve there must be exactly 2 dummies in this alley. 
+       # # # # L- # #L # # # # # # due to hungariansolve there must be exactly 2 dummies in this region 
        #       #     ^ dummies here ^ d2v after
        # d2d   #  < # # # # # # #
        #       #    #    d2v before
        #       #  < #                 cost matrix realignment, creates exactly 1 more '2'.
        #       #    #
        #       R+   R                 |v2d| = L^2, |d2V| = R^2
-       
-       
        # 
-        eliminations = len(killed.keys())
-        _worstcase.append(eliminations)
+        eliminations_0 = len(killed.keys())
+        _worstcase.append(eliminations_0)
         #print(eliminations," Eliminations at budget: ",epsilon)
         #increment counter
         t+=1
     del Rho[Tau+1]
-    
-    # Tau decreases, t increases # ######################################################## Jim Elim 
-    #  Base image indexed by threshold              #
-    #  Base image + sum of deltas  = sparse         #
-    #                                               #
+    return Rho,DELTAS,_worstcase,images
 
+#
+def matrix_sum(base,deltas):
+    for d in deltas:
+        base += d;
+    return base
+
+
+# eliminates overbudget entries and shares info with sew
+#def reap(matrix,budget,alive,dead,elimcount):
+#    _new_matrix = matrix
+#    _just_died = []
+#    _alive = alive
+#    _dead = dead
+#    _elim_ctr = elimcount
+    #filter non-living entries
+#    for e in _alive.keys():
+#        u = e[0]
+#        v = e[1]
+#        if matrix[u][v] > budget:
+#            _new_matrix[u][v] = -1
+            #record "time of death"
+#            _dead[(u,v)] = _elim_ctr
+            #update death count/time
+#            _elim_ctr += 1
+            #add to list for next phase
+#            _just_died.append((u,v)]
+            #update living
+#            del _alive[(u,v)]
+#        else:
+            #nobody died
+#            _new_matrix[u][v] = matrix[u][v]
+#    return _new_matrix,_just_died,_dead,_alive
+
+# 
+#def sew(n,new_matrix,just_died,alive):
     #
-    # BASE[epsilon] = P at budget epsilon
+    # delta matrices here are the partial matrices that result from 
+    # adding 2 iteratively to neighborhoods. each iteration is saved as a matrix, and when the matrices are summed together they are equivalent to a single pass. 
+    # this algorithm is essentially unwinding the process as much as possible to show intermediate steps
+    #
+#    _deltas = []
+#    _just_died = just_died
+#    _alive = alive.keys()
+#    # empty D
+#    D = np.asarray([[0]*n for _ in range(n)])
+#    # those who just died
+#    for e in _just_died:
+#        # neighborhoods with dead filtered out (checks matrix row i and column i and row j and column j
+#        for i in range(n):
+#            # filters out dead
+#            if (e[0],i) in _alive:
+#                D[e[0]][i] = D[e[0]][i]+2
+#            # filters out dead
+#            if (e[1],i) in _alive:
+#                [e[1]][i] = D[e[1]][i]+2
+#            # filters out dead
+#            if (i,e[0]) in _alive:
+#                D[i][e[0]] = D[i][e[0]]+2
+#            # filters out dead
+#            if (i,e[1]) in _alive:
+#                D[i][e[1]] = D[i][e[1]]+2
+#        _deltas.append(D)
+#    return _deltas
+
+#
+
+
+def main():
+    #
+    names = []
+    with open('data/vnames.txt') as f:
+        lines = f.readlines()
+        for line in lines:
+            for num in re.findall("\d+",line):names.append(int(num))
+    print("maximum vertices",len(names))
+    n = int(sys.argv[1])
+    p = float(sys.argv[2])
+    g = nx.erdos_renyi_graph(n,p)
+    # for any counter, ctr, epsilon = Tau - t
+    #
+    Tau = int(sys.argv[3])
+    P0 = []
+    Rho = {} # Rho is indexed by budget
+    #
+    print("Generate P")
+    P0 = generate_P0(n,names,g)
+    print("P generated on ",n,"nodes")
+    ############################################# Refinement Algorithm 1: DegreeDifElim #
+    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > Tau else e for e in P0 ]
+    #################################################################### Elim2_preprocess 
+    Rho,ELIMS,_worstcase,images = elim2_preprocess(n,Tau,P1)
     # convert to Numpy matrix
-    BASE = {}
+    INITS = {}
     for ctr in range(Tau):
         epsilon = Tau - ctr
         _matrix = [[0]*n for _ in range(n)] # n x n table
         for (y,x,score) in Rho[epsilon]:_matrix[y][x] = score
-        BASE[epsilon] = _matrix 
+        INITS[epsilon] = np.asarray(_matrix)
 
     
-    # plot Base and Deltas to verify
-    P_MATRICES = []
-    for epsilon in range(Tau,0,-1):
-        D_base = []
-        D_base.append(np.asarray(BASE[epsilon]))
-        for Delta in DELTAS[epsilon]:
-            D_base.append(Delta)
-        P_MATRICES.append(D_base)
-    ctr = Tau
-    #for path in P_MATRICES:
-    #    print("budget = ",ctr)
-    #    ctr-=1
-    #    for matrix in path:
-    #        print(matrix)
-
-
-    ############################################# Algorithm 3 ###########################
-    #
-    # Apply multidimensional scaling
-    # 
-    #
-    ############################################# matplot lib ############################
-
-    model = MDS(n_components=2, dissimilarity='precomputed', random_state=0)
-
-    D = BASE[2]
-    
-
-    #plt.matshow(D, zorder=2, cmap='Blues', interpolation='nearest')
-    #plt.colorbar()
-    out = model.fit_transform(D)
-    plt.scatter(out[:, 0], out[:, 1])
-    plt.axis('equal');
-    plt.show()
-    
-    
+    print(len(images))
+    print(images[3])
+    print(_worstcase)
+    #fig, axes = plt.subplots(10,10, figsize=(8,8)))
+    #for i,ax in enumerate(axes.flat):
+    #    ax.imshow(images[i])
         
-
-
+    
+    
 if __name__ == "__main__":
     main()
 #
