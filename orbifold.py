@@ -11,46 +11,12 @@ import networkx as nx
 import re
 import math
 import fractions
+
 from numpy.random import permutation
 from colorama import Fore
 from colorama import Style
 from colorama import Back
 from operator import itemgetter
-
-
-# memo = 1wf = schedule
-
-################################################################### RECONSTRUCTORS  ######################### 
-
-#def scoreFunction():
-    # reconstructs scoreTable from memo1, because scores can collide due to orbit property a*b in H implies a and b in H 
-
-#def cosets(dim,costMatrix):
-    # reconstructs cost matrices from memo2, because dims can collide, produces likelihood space
-    # populates with matchings
-
-#def orbifold(scoreTable):
-    # assumed that (a,b,f(ab)) is closed:
-    # plots scoreTable. 
-
-######################################################################################## TUPLE CONSTRUCTORS
-
-#def bipartiteCoordinates(leftSize,rightSize):
-#    dims = [leftSize,rightSize]
-#    bpcoords = [(idi, idv) for idi, dim in enumerate(dims) for idv in range(dim)]
-
-#def matrix2coord(input_matrix,shape):
-#    grid = [(idx[0],idx[1],input_matrix[idx[0]][idx[1]]) for idx in it.product(*[range(s) for s in shape])]
-#    return grid
-
-###########################################################################################################
-
-def phi(n):
-    amount = 0        
-    for k in range(1, n + 1):
-        if fractions.gcd(n, k) == 1:
-            amount += 1
-    return amount
 
 def asciiTable(input_list1,rowsize,colsize,theta):
     # stackoverflow recipe #
@@ -159,41 +125,7 @@ def printMatchingStructure(M):
     for edge in M:print(f'{Fore.BLUE}{(lambda x: x[0][1])(e):>3}{Style.RESET_ALL}' if edge[0][0] == 0 else f'{Fore.RED}{(lambda y: y[1][1])(e):>3}{Style.RESET_ALL}','   ',end='')
     print('\n')
 
-########################################################################################### Printers  ###################################################################################################################################
 
-
-#def linearsum(B,M):
-#    linearsum = 0;
-#    for m in M:
-#        e = (m[0][1],m[1][1])
-#        print(e)
-        #linearsum+=abs(B.get_edge_data(*e))
-        #print(linearsum)
-   # return M,linearsum
-        
-        
-    #computes the sum of weights
-#
-#
-#
-#
-#
-# 
-#
-##################################################################################################################################################################################################################################
-
-# unfinished ideas
-
-# memo3 -  pair2neuron(g,u,v):
-# for neuron-prime
-    #vertexCoords = [(idi,num2namepoint[idv]) for idi, node in enumerate([Nu,dim]) for idv in node] # one pass
-    #dummyCoords = [(idi, idv) if idi == 0 else (idi, str(idv)) for idi, dim in enumerate(reversed(dim)) for idv in range(dim)] # one pass
-
-# neuron is going to be list of tuples, reconstructed from matchings, want to get neuron cosets for CNN
-
-##################################################################################################################################################################################################################################
-##################################################################################################################################################################################################################################
-##################################################################################################################################################################################################################################
 ##################################################################################################################################################################################################################################
 ##################################################################################################################################################################################################################################
 ########################################################### Graph Handling
@@ -299,68 +231,85 @@ def main():
     n = int(sys.argv[1])
     p = float(sys.argv[2])
     g = nx.erdos_renyi_graph(n,p)
-    u = int(sys.argv[3])
-    v = int(sys.argv[4])
+    
+
+    # for any counter, ctr, epsilon = Tau - t
+    
+    
     ###################################################################### Random Graph #
     
-    Tau = int(sys.argv[5])
+    Tau = int(sys.argv[3])
     P0 = []
     #memo1 = {} 
     #memo2 = {}
     Rho = {} # Rho is indexed by budget
     
     ######################################################################## Generate P #
-    # edges sorted here
+    print("Generate P")
+    
+    # edges sorted here O(n^2)
     for u,v in it.product(range(n),range(n)):
         num2namepoint,Nu,Nv,dim = genMunkresBasis(names,n,g,u,v)
         #
         B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
-        #print(M)
-        #print(nx.is_perfect_matching(B,M))
+        print(u,v," perfect matching: ",nx.is_perfect_matching(B,M))
         linsum = extractweight(g,u,v)
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
-        #print(linsum)
+        print(dim)
         P0.append((u,v,linsum))
         #memo1[linsum] = (u,v)
         #memo2[dim] = M
         # return memo1 , memo2 #
+    
+    print("P generated on ",n,"nodes")
 
     ############################################# Refinement Algorithm 1: DegreeDifElim #
     P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > Tau else e for e in P0 ]
 
 
     ############################################# Refinement Algorithm 2: JimElim #######
+    print("Jim Elim")
     Rho[Tau+1] = P1
     Rho2 = {}
-    sample = {}
-    casualties = 0
+    killed = {}
+    eliminations = 0
+    
+    # this encodes how many times JimElim will have to repeat itself by length/index, and the respective elimination count
+    _worstcase = []
+    
     t = 0
     # casualties may not exceed dimensions of P
     # however since casualties increase exponentially, this should not be a huge computational burden
-    while casualties < n*(n-1):
-        
-        # make permutation graph
-        #
-        #
-        epsilon = Tau - t
+    
+    while eliminations < n*(n-1):
+        _hc = []
+        epsilon = Tau- t
+        # Eliminate if over budget
         Rho[epsilon] = [ (e[0],e[1],-1) if e[2]  > 2*epsilon else e for e in Rho[epsilon+1] ]
+
         # zero matrix
         Rho2[epsilon] = []
-        delta = [(e[0],e[1],0) for e in Rho[epsilon]]
-        #for e in Rho[budget]:print(e)
+        Delta = [(e[0],e[1],0) for e in Rho[epsilon]]
+        for e in Rho[epsilon]:print(e[2]," ",sep=' ')
+        print('\n')
         #
-        # add delta to Rho (while pairs memoized ) 
+        # add delta to Rho (while pairs memoized ) O(e*n)
         for e in Rho[epsilon]:
+            print(e[2],sep=' ')
+            print('\n')
+        ######################################################## compute delta sum
             if e[2] == -1:
                 for i in range(n):
                     #L
-                    delta[i*n+e[1]] = (e[0],e[1],e[2]+2)
-                    delta[e[0]*n+i] = (e[0],e[1],e[2]+2)
+                    Delta[i*n+e[1]] = (e[0],e[1],e[2]+2)
+                    Delta[e[0]*n+i] = (e[0],e[1],e[2]+2)
                     #R
-                    delta[i*n + e[0]] = (e[0],e[1],e[2]+2)
-                    delta[e[1]*n+i] =(e[0],e[1],e[2]+2)
-                sample[(e[0],e[1])] = delta
-                Rho2[epsilon].append(delta)
+                    Delta[i*n + e[0]] = (e[0],e[1],e[2]+2)
+                    Delta[e[1]*n+i] =(e[0],e[1],e[2]+2)
+                
+                killed[(e[0],e[1])] = Delta
+                Rho2[epsilon].append(Delta)
+                
        #########################################################
 
        # Rho+delta = lowerbound
@@ -374,15 +323,17 @@ def main():
        #       #    #    d2v before
        #       #  < #                 cost matrix realignment, creates exactly 1 more '2'.
        #       #    #
-       #       R+   R
+       #       R+   R                 |v2d| = L^2, |d2V| = R^2
        
        
        # 
-        casualties = len(sample.keys())
-        print(casualties," Eliminations at threshold ",epsilon)
-        #increment timer
+        eliminations = len(killed.keys())
+        _worstcase.append(eliminations)
+        print(eliminations," Eliminations at budget: ",epsilon)
+        #increment counter
         t+=1
     del Rho[Tau+1]
+    
     # Tau decreases, t increases # ######################################################## Jim Elim 
     #                                   #
     #  Rho[epsilon] contains sparse     # 
@@ -391,21 +342,42 @@ def main():
     #                                   #
     #  # # # # # # ## # # # # # # # # # #
 
-    #                                                     #
-    # Lower Bound Matrix is format conversion to matrices #
-    #                                                     #
-    LowerBoundMatrix = {}
-    for scale in range(Tau):
-        D = [[0]*n for _ in range(n)]
-        for (y,x,c) in Rho[scale]:D[y][x] = c
-        LowerBoundMatrix[scale] = D 
+    #                                               #
+    #  Base image indexed by threshold              #
+    #  Base image + sum of deltas  = sparse         #
+    #                                               #
+
+    #
+    # BASE[epsilon] = P at budget epsilon
+    #
+    BASE = {}
+    for ctr in range(Tau):
+        epsilon = Tau - ctr
+        _matrix = [[0]*n for _ in range(n)] # n x n table
+        for (y,x,score) in Rho[epsilon]:_matrix[y][x] = score
+        BASE[epsilon] = _matrix 
+    #
+    # DELTAS[epsilon] = [ Delta0, Delta1, .... ]
+    #
+    DELTAS = {}
+    for ctr in range(Tau):
+        epsilon  = Tau - ctr
+        _Deltas = []
+        for _DeltaList in Rho2[epsilon]:
+            # make single matrix
+            _matrix = [[0]*n for _ in range(n)]
+            for (y,x,score) in _DeltaList:_matrix[y][x] = score
+            # append to _Deltas
+            _Deltas.append(_matrix)
+        DELTAS[epsilon] = _Deltas
     
+        
 
 
     ############################################# Algorithm 3 ###########################
     #
     # Apply multidimensional scaling
-    # LowerBoundMatrix[scale] is a distance matrix
+    # 
     #
     ############################################# matplot lib ############################
 
