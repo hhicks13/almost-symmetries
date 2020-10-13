@@ -302,9 +302,9 @@ def main():
     print(len(images))
     print(images[3])
     print(_worstcase)
-    fig, axes = plt.subplots(10,10, figsize=(8,8))
-    for i,ax in enumerate(axes.flat):
-        ax.imshow(images[i])
+    #fig, axes = plt.subplots(10,10, figsize=(8,8))
+    #for i,ax in enumerate(axes.flat):
+    #    ax.imshow(images[i])
     #plt.subplots(figsize = (n,n)) # width x height
     #sns.heatmap(images[3]) # row, column, position
     #ax2 = fig.add_subplot(3, 3, 2)
@@ -319,7 +319,7 @@ def main():
     #sns.heatmap(data=subset3.corr(), ax=ax3, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
     #sns.heatmap(data=subset4.corr(), ax=ax4, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
     #sns.heatmap(data=subset5.corr(), ax=ax5, cmap = cmap, square=True, cbar_kws={'shrink': .3}, annot=True, annot_kws={'fontsize': 12})
-    plt.show()
+    #plt.show()
         
     
     
