@@ -1,7 +1,7 @@
 # almost-symmetries
 ##
 todo:
-add degreediff to each weight on top of linsum
+add degreediff to each weight on top of linsu
 once node is eliminated increase increase neighbor weights by 2
 
 colorscale with
