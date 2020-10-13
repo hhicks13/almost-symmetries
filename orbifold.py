@@ -196,7 +196,6 @@ def elim2_preprocess(n,Tau,P1):
         #print(eliminations," Eliminations at budget: ",epsilon)
         #increment counter
         t+=1
-    del Rho[Tau+1]
     return Rho,DELTAS,_worstcase,images
 
 #
