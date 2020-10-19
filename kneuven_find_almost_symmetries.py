@@ -181,60 +181,73 @@ def elim2_preprocess(n,Tau,P1):
 #        if node[3]:
 #            orbitNum =     
 #    return time
-# Ostrowski & Hicks
-#def Algorithm1():
-#    return time
 
-#def matrix_sum(base,deltas):
-#    for d in deltas:
-#        base += d;
-#    return base
+# requires:
+# graph from nx, g
+# graph from ig, G
+# call count_automorphisms_vf2 on G.
+def ComputeAutomorphisms(_GA):
+    return autNum
 
-#def save_images(images):
-    #fig, axes = plt.subplots(10,10, figsize=(8,8))
-    #for i,ax in enumerate(axes.flat):
-    #    ax.imshow(images[i])
-    #plt.subplots(figsize = (n,n)) # width x height
-    #sns.heatmap(images[3]) # row, column, position
-    #ax2 = fig.add_subplot(3, 3, 2)
-    #ax3 = fig.add_subplot(3, 3, 3)
-    #ax4 = fig.add_subplot(3, 3, 4)
-    #ax5 = fig.add_subplot(3, 3, 5)
-    #plt.show()
+# Need set E(PA) exposed
+# _GA must be g
+def DegreeDiffElim(_GA,_PA,_kA):
+    return PA_refined
+
+# dEFA(i) to be the number of fixed edges incident to i
+#
+def dEFA(i):
+    return adjacent_fixed
+
+def FixedDefElim(_GA,_PA,_EFA):
+    return PA_refined
+
+# use networkx
+def BuildCostMatrix(i,j,_GA,_PA,_EFA,_kA):
+    return _weightedGraph
+    
+def HungarianSolve(_costmatrix):
+    return _cost, _selected_edges
+
+def GreedyIndependentSetSize(_PA):
+    return lower_bound
+
+def RefineByMatching(_GA,_PA,_EFA,kA):
+    return edgeUse
+
+def FindBranchEdge(_GA,_PA,_EFA,_edgeUse):
+    return branchEdge
+
+
+
 
 def main():
-    #
+    # used to distinguish dummy variables from vertices.
     names = []
     with open('data/vnames.txt') as f:
         lines = f.readlines()
         for line in lines:
             for num in re.findall("\d+",line):names.append(int(num))
     print("maximum vertices",len(names))
+    
     n = int(sys.argv[1])
     p = float(sys.argv[2])
     g = nx.erdos_renyi_graph(n,p)
 
     #
-    Tau = int(sys.argv[3])
-    P0 = []
-    Rho = {}
+    Budget = int(sys.argv[3])
     #
     print("Generate P")
-    P0 = generate_P0(n,names,g)
     print("P generated on ",n,"nodes")
     print("DegreeDifElim")
-    P1 = [ (e[0],e[1],0) if abs(g.degree(e[0]) - g.degree(e[1])) > Tau else e for e in P0 ]
+    print("FixedDegreeElim")
+    print("ComputeAutomorphisms")
+    print("RefineByMatching")
+    print("GreedyInependentSetSize")
+    print("FindBranchEdge")
+    
 
-    Rho,ELIMS,_worstcase,images = elim2_preprocess(n,Tau,P1)
-    INITS = {}
-    for ctr in range(Tau):
-        epsilon = Tau - ctr
-        _matrix = [[0]*n for _ in range(n)] # n x n table
-        for (y,x,score) in Rho[epsilon]:_matrix[y][x] = score
-        INITS[epsilon] = np.asarray(_matrix)
-    print(len(images))
-    print(images[3])
-    print(_worstcase)
+   
             
     
     
