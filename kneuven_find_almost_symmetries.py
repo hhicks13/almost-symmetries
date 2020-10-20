@@ -115,10 +115,10 @@ def buildCostMatrix1(_GA,u,v):
     return lN,rN,dim
     
 #left neighborhood is smaller
-def buildCostMatrix2(Ni,Nj,dim,kA):
+def buildCostMatrix2(Ni,Nj,dim,_kA):
     #line 9 in BCM
-    Ld = dim[1]-dim[0]+kA
-    Rd = kA
+    Ld = dim[1]-dim[0]+_kA
+    Rd = _kA
     Pair = namedtuple('Pair',('isRight','isNeighbor','name'))
     LeftBp = [ Pair(0,1,idv) if idi == 0 else Pair(0,0,idv) for idi, vertices in enumerate([Ni,[i for i in range(Ld) ]]) for idv in vertices] 
     RightBp =[ Pair(1,1,idv) if idi == 0 else Pair(1,0,idv) for idi, vertices in enumerate([Nj,[i for i in range(Rd) ]]) for idv in vertices]
@@ -126,7 +126,7 @@ def buildCostMatrix2(Ni,Nj,dim,kA):
 
 #u in left set and v in right#
 #u and v are named tuples
-def buildCostMatrix3(i,j,u,v,_GA,_PA,_efa):
+def buildCostMatrix3(i,j,u,v,_GA,_PA,_EFA):
     #3 cases:
     #v2v
     _u = u.name
@@ -147,17 +147,17 @@ def buildCostMatrix3(i,j,u,v,_GA,_PA,_efa):
         return 0
     #d2v/v2d
     else:
-        if (i,_u) in _efa.edges or (j,v) in _efa.edges:
+        if (i,_u) in _EFA.edges or (j,v) in _EFA.edges:
             return -999
         else:
             return -2
 
 
-def buildCostMatrix4(i,j,_GA,_PA,_efa,_kA):
+def buildCostMatrix4(i,j,_GA,_PA,_EFA,_kA):
     Ni,Nj,dim = buildCostMatrix1(_GA,i,j)
     LeftBp,RightBp = buildCostMatrix2(Ni,Nj,dim,_kA)
     # draw edge & weight, line 10
-    weights = { (e[0].name,e[1].name):buildCostMatrix3(i,j,e[0],e[1],_GA,_PA,efa)) for e in it.product(LeftBP,RightBp) }
+    weights = { (e[0].name,e[1].name):buildCostMatrix3(i,j,e[0],e[1],_GA,_PA,_EFA)) for e in it.product(LeftBP,RightBp) }
     weighted_edges = [ (e[0],e[1],weight[(e[0].name,e[1].name)]) for e in it.product(LeftBp,RightBp) ] 
     CostMatrix = nx.Graph()
     CostMatrix.add_nodes_from(LeftBp,bipartite=0)
@@ -169,9 +169,9 @@ def HungarianSolve(CostMatrix,weights):
     cost = 0
     deleteEdges = nx.max_weight_matching(CostMatrix,maxCardinality=True)
     for e in deleteEdges:cost+=weights[(e[0].name,e[1].name)]
-    return cost,deleteEdges
+    return -1*cost,deleteEdges
 
-def RefineByMatching(_GA,_PA,_EFA,kA):
+def RefineByMatching(_GA,_PA,_EFA,_kA):
     n = len(_GA.nodes)
     g = nx.Graph(_GA)
     edgeUse = {}
@@ -179,36 +179,42 @@ def RefineByMatching(_GA,_PA,_EFA,kA):
     #
     for e in _PA.edges:edgeUse[e] = 0
     #
-    E_P_A = _PA.edges
-    for edge in E_P_A[:]:
-        cost = 0
+    E_PA = _PA.edges
+    for edge in E_PA[:]:
         i = edge[0]
         j = edge[1]
-        CostMatrix,weights = BuildCostMatrix4(_GA,i,j,_efa,_PA,kA)
-        edgeUsed = HungarianSolve(CostMatrix)
-        print(i,j," perfect matching: ",nx.is_perfect_matching(B,deleteEdges))
-        for e in deleteEdges:cost+=extractweight(g,e[0][1],e[1][1])
-        print(cost)
-        print(deleteEdges)
+        CostMatrix,weights = BuildCostMatrix4(i,j,_GA,_PA,_efa,_kA)
+        cost,deleteEdges = HungarianSolve(CostMatrix,weights)
+        print(i,j," perfect matching: ",nx.is_perfect_matching(CostMatrix,deleteEdges))
         #
-        if cost > 2*kA:
-            EPA.remove[edge]
+        if cost > 2*_kA:
+            E_PA.remove(edge)
             changed = True
         else:
             for e in deleteEdges:edgeUse[e]+=1
         #
-        pa = None # new graph based on E_P_A
+        P_A = None # new graph based on E_PA
             
-    return changed,edgeUse,pa
+    return changed,edgeUse,P_A
 
 
 # call count_automorphisms_vf2 on G.
 def ComputeAutomorphisms(_GA):
+    G = ig.Graph.from_networkx(_GA)
+    autNum = G.count_automorphisms_vf2()
     return autNum
 
 # Need set E(PA) exposed
 # _GA must be g
 def DegreeDiffElim(_GA,_PA,_kA):
+    E_PA = _PA.edges
+    for edge in E_PA[:]:
+        i = edge[0]
+        j = edge[1]
+        if abs(_GA.degree(i)-_GA.degree(j)) > kA:
+            E_PA.remove(edge)
+    PA_refined = nx.Graph()
+    PA_refined.add_edges_from(E(
     return PA_refined
 
 # dEFA(i) to be the number of fixed edges incident to i
@@ -223,11 +229,11 @@ def FixedDefElim(_GA,_PA,_EFA):
 # G = tograph(_PA)
 # nx.maximal_independent_set(G)
 # return size of preceding
-def GreedyIndependentSetSize(_PA):
-    return lower_bound
+def GreedyIndependentSetSize(_pa):
+    independent_set =  nx.maximal_independent_set(G)
+    return len(independent_set)
 
-def removeFromEPA(_PA,i,j):
-    return _PA
+
 #
 # edgeUse is a dictionary
 #
@@ -244,19 +250,12 @@ def FindBranchEdge(_GA,_PA,_EFA,_edgeUse):
 
 def main():
     # used to distinguish dummy variables from vertices.
-    names = []
-    with open('data/vnames.txt') as f:
-        lines = f.readlines()
-        for line in lines:
-            for num in re.findall("\d+",line):names.append(int(num))
-    print("maximum vertices",len(names))
-    
+        
     n = int(sys.argv[1])
     p = float(sys.argv[2])
     G = nx.erdos_renyi_graph(n,p)
 
     #
-    MaxBudget = int(sys.argv[3])
     Node = namedtuple('Node',('PA','EDA','EFA','delChild'))
     spacer = " "*4
     T = 0
@@ -266,7 +265,7 @@ def main():
 
     #
     print("Initialize Root Node")
-    k = MaxBudget
+    k = int(sys.argv[1])
     P_R = nx.complete_graph(n)
     EDR = nx.erdos_renyi_graph(n,0)
     EFR = nx.erdos_renyi_graph(n,0)
@@ -337,9 +336,9 @@ def main():
                     print(spacer,spacer,T,".1.1.",t,"computing bound")
                     if lowerBound >= incumbentValue:
                         print(spacer,spacer,T,".1.1.",t," lowerbound >= incumbentValue: prune node")
-                        _prune_rbm = True
+                        prune_rbm = True
                         break
-            if _prune_rbm:
+            if prune_rbm:
                 print(spacer,T,".1.2 node pruned. lowerbound >= incumbentValue")
                 continue
             else:print(T,".2 new lower bound!")
@@ -353,12 +352,12 @@ def main():
                 continue
             #
             print(T,".4 create children")
-            _efa_branch = None #add new edges for fixation
-            _eda_branch = None #add new edges for deletion
+            efa_branch = None #add new edges for fixation
+            eda_branch = None #add new edges for deletion
             print(spacer,T,".4.1: append fChild")
-            NodeStack.append(Node(pa,eda,_efa_branch,False))
+            NodeStack.append(Node(pa,eda,efa_branch,False))
             print(spacer,T,".4.2: append dChild")
-            NodeStack.append(Node(pa,_eda_branch,efa,True))            
+            NodeStack.append(Node(pa,eda_branch,efa,True))            
         #
         except IndexError:
             print(T,".5: end of stack")
@@ -366,18 +365,6 @@ def main():
         
     print("incumbentValue",incumbentValue)
     print("incumbentSolution",incumbentSolution)
-        
-    
-    
-    
-    # _EFR, _EDR graphs.
-    print("P generated on ",n,"nodes")
-    print("DegreeDifElim")
-    print("FixedDegreeElim")
-    print("ComputeAutomorphisms")
-    print("RefineByMatching")
-    print("GreedyInependentSetSize")
-    print("FindBranchEdge")
     
 
    
