@@ -11,99 +11,21 @@ import networkx as nx
 import igraph as ig
 import re
 import math
-import fractions
 import seaborn as sns
-
 from collections import deque
 from collections import namedtuple
 from numpy.random import permutation
-from colorama import Fore
-from colorama import Style
-from colorama import Back
 from operator import itemgetter
 
-from matplotlib import pyplot as plt
-from matplotlib.collections import LineCollection
 
-from sklearn import manifold
-from sklearn.metrics import euclidean_distances
-from sklearn.decomposition import PCA
-
-from sklearn.manifold import MDS
-from mpl_toolkits import mplot3d
-
-def sortByLength(set1,set2):
-    if len(set1) == len(set2):
-        return set1, set2
-    elif len(set1) < len(set2):
-        return set1, set2
-    else:
-        return set2,set1
-
-def getNameSpace(names,n):
-    grid0 = [range(n),names]
-    num2namepoint = {j[0]:j for j in it.zip_longest(*grid0)}
-
-    if len(names) == n:
-        return num2namepoint
-    else: return None
-
-def pair2neighborhood(g,u,v):
-    Nu = [e for e in nx.neighbors(g,u)]
-    Nv = [f for f in nx.neighbors(g,v)]
-    try:
-        Nu.remove(v)
-        Nv.remove(u)
-    except(ValueError,TypeError):
-        print("")
-    lN,rN = sortByLength(Nu,Nv)
-    dim = [len(lN),len(rN)]
-    return lN,rN,dim
-
-def buildCostMatrix1(names,n,g,u,v):
-    num2namepoint = getNameSpace(names[:n],n)
-    Nu,Nv,dim = pair2neighborhood(g,u,v)
-    return num2namepoint,Nu,Nv,dim
-
-def assignweight(g,u,v):
-    if type(u) is tuple and type(v) is tuple:
-        return -abs(g.degree(u[0]) - g.degree(v[0]))    
-    elif type(u) is int and type(v) is int:
-        return 0
-    else:
-        return -1
-    
-def extractweight(g,u,v):
-    if type(u) is tuple and type(v) is tuple:
-        return abs(g.degree(u[0]) - g.degree(v[0]))
-    elif type(u) is int and type(v) is int:
-        return 0
-    else:
-        return 1
-
-def buildCostMatrix2(num2namepoint,Nu,Nv,dim):
-    LeftBp = [ (0,num2namepoint[idv]) if idi == 0 else (0,idv) for idi, vertices in enumerate([Nu,[i for i in range(dim[1]) ]]) for idv in vertices] 
-    RightBp =[ (1,num2namepoint[idv]) if idi == 0 else (1,idv) for idi, vertices in enumerate([Nv,[i for i in range(dim[0]) ]]) for idv in vertices]
-    #print(len(LeftBp))
-    #print(len(RightBp))
-    return LeftBp,RightBp
-
-def hungarianSolve(g,num2namepoint,Nu,Nv,dim):
-    LeftBp,RightBp = buildCostMatrix2(num2namepoint,Nu,Nv,dim)
-    weighted_edges = [ (e[0],e[1],assignweight(g,e[0][1],e[1][1])) for e in it.product(LeftBp,RightBp) ] #O(n^2)
-    B = nx.Graph()
-    B.add_nodes_from(LeftBp,bipartite=0)
-    B.add_nodes_from(RightBp,bipartite=1)
-    B.add_weighted_edges_from(weighted_edges)
-    M  = nx.max_weight_matching(B,maxcardinality=True)
-    return B,M
+#### previous
 
 def generate_P0(n,names,g):
     P0 = []
     for u,v in it.product(range(n),range(n)):
-        num2namepoint,Nu,Nv,dim = buildCostMatrix1(names,n,g,u,v)
+        Nu,Nv,dim = buildCostMatrix1(n,g,u,v)
         #
-        B,M  = hungarianSolve(g,num2namepoint,Nu,Nv,dim)
+        B,M  = hungarianSolve(g,Nu,Nv,dim)
         print(u,v," perfect matching: ",nx.is_perfect_matching(B,M))
         linsum = extractweight(g,u,v)
         for m in M:linsum+=extractweight(g,m[0][1],m[1][1])
@@ -164,6 +86,121 @@ def elim2_preprocess(n,Tau,P1):
         _worstcase.append(eliminations_0)
         t+=1
     return Rho,DELTAS,_worstcase,images
+########################################################################################################### Kneuven
+
+def sortByLength(set1,set2):
+    if len(set1) == len(set2):
+        return set1, set2
+    elif len(set1) < len(set2):
+        return set1, set2
+    else:
+        return set2,set1
+
+
+#    grid0 = [range(n),names]
+#    num2namepoint = {j[0]:j for j in it.zip_longest(*grid0)}
+
+
+def buildCostMatrix1(_GA,u,v):
+    g = _GA
+    Nu = [e for e in nx.neighbors(g,u)]
+    Nv = [f for f in nx.neighbors(g,v)]
+    try:
+        Nu.remove(v)
+        Nv.remove(u)
+    except(ValueError,TypeError):
+        print("")
+    lN,rN = sortByLength(Nu,Nv)
+    dim = [len(lN),len(rN)]
+    return lN,rN,dim
+    
+#left neighborhood is smaller
+def buildCostMatrix2(Ni,Nj,dim,kA):
+    #line 9 in BCM
+    Ld = dim[1]-dim[0]+kA
+    Rd = kA
+    Pair = namedtuple('Pair',('isRight','isNeighbor','name'))
+    LeftBp = [ Pair(0,1,idv) if idi == 0 else Pair(0,0,idv) for idi, vertices in enumerate([Ni,[i for i in range(Ld) ]]) for idv in vertices] 
+    RightBp =[ Pair(1,1,idv) if idi == 0 else Pair(1,0,idv) for idi, vertices in enumerate([Nj,[i for i in range(Rd) ]]) for idv in vertices]
+    return LeftBp,RightBp
+
+#u in left set and v in right#
+#u and v are named tuples
+def buildCostMatrix3(i,j,u,v,_GA,_PA,_efa):
+    #3 cases:
+    #v2v
+    _u = u.name
+    _v = v.name
+    if u.isNeighbor == 1 and v.isNeighbor == 1:
+        if (_u,_v) in _PA.edges or (_v,_u) in _PA.edges:
+            # I dont believe these two cases are possible
+            if (not _u in nx.neighbors(_PA,i)) and  _GA.degree(_u) > _GA.degree(_v):
+                return -2*abs(_GA.degree(_u) - _GA.degree(_v))
+            elif (not _v in nx.neighbors(_PA,j)) and _GA.degree(_v) > _GA.degree(_u):
+                return -2*abs(_GA.degree(_u) - _GA.degree(_v))
+            else:
+                return -abs(_GA.degree(_u) - _GA.degree(_v))
+        else:
+            return -999
+    #d2d
+    elif u.isNeighbor == 0 and v.isNeighbor == 0:
+        return 0
+    #d2v/v2d
+    else:
+        if (i,_u) in _efa.edges or (j,v) in _efa.edges:
+            return -999
+        else:
+            return -2
+
+
+def buildCostMatrix4(i,j,_GA,_PA,_efa,_kA):
+    Ni,Nj,dim = buildCostMatrix1(_GA,i,j)
+    LeftBp,RightBp = buildCostMatrix2(Ni,Nj,dim,_kA)
+    # draw edge & weight, line 10
+    weights = { (e[0].name,e[1].name):buildCostMatrix3(i,j,e[0],e[1],_GA,_PA,efa)) for e in it.product(LeftBP,RightBp) }
+    weighted_edges = [ (e[0],e[1],weight[(e[0].name,e[1].name)]) for e in it.product(LeftBp,RightBp) ] 
+    CostMatrix = nx.Graph()
+    CostMatrix.add_nodes_from(LeftBp,bipartite=0)
+    CostMatrix.add_nodes_from(RightBp,bipartite=1)
+    CostMatrix.add_weighted_edges_from(weighted_edges)
+    return CostMatrix,weights
+
+def HungarianSolve(CostMatrix,weights):
+    cost = 0
+    deleteEdges = nx.max_weight_matching(CostMatrix,maxCardinality=True)
+    for e in deleteEdges:cost+=weights[(e[0].name,e[1].name)]
+    return cost,deleteEdges
+
+def RefineByMatching(_GA,_PA,_EFA,kA):
+    n = len(_GA.nodes)
+    g = nx.Graph(_GA)
+    edgeUse = {}
+    changed = False
+    #
+    for e in _PA.edges:edgeUse[e] = 0
+    #
+    E_P_A = _PA.edges
+    for edge in E_P_A[:]:
+        cost = 0
+        i = edge[0]
+        j = edge[1]
+        CostMatrix,weights = BuildCostMatrix4(_GA,i,j,_efa,_PA,kA)
+        edgeUsed = HungarianSolve(CostMatrix)
+        print(i,j," perfect matching: ",nx.is_perfect_matching(B,deleteEdges))
+        for e in deleteEdges:cost+=extractweight(g,e[0][1],e[1][1])
+        print(cost)
+        print(deleteEdges)
+        #
+        if cost > 2*kA:
+            EPA.remove[edge]
+            changed = True
+        else:
+            for e in deleteEdges:edgeUse[e]+=1
+        #
+        pa = None # new graph based on E_P_A
+            
+    return changed,edgeUse,pa
+
 
 # call count_automorphisms_vf2 on G.
 def ComputeAutomorphisms(_GA):
@@ -182,12 +219,6 @@ def dEFA(i):
 def FixedDefElim(_GA,_PA,_EFA):
     return PA_refined
 
-# use networkx
-def BuildCostMatrix(i,j,_GA,_PA,_EFA,_kA):
-    return _weightedGraph
-    
-def HungarianSolve(_costmatrix):
-    return _cost, _selected_edges
 
 # G = tograph(_PA)
 # nx.maximal_independent_set(G)
@@ -200,36 +231,6 @@ def removeFromEPA(_PA,i,j):
 #
 # edgeUse is a dictionary
 #
-
-def RefineByMatching(_GA,_PA,_EFA,kA,data):
-    n = len(_GA.nodes)
-    g = nx.Graph(_GA)
-    edgeUse = {}
-    changed = False
-    #
-    for e in _PA.edges:edgeUse[e] = 0
-    #
-    E_P_A = _PA.edges
-    for edge in E_P_A[:]:
-        cost = 0
-        i = edge[0]
-        j = edge[1]
-        costmatrixData,Ni,Nj,dim = buildCostMatrix1(data,n,g,i,j)
-        B,deleteEdges  = hungarianSolve(g,costmatrixData,Ni,Nj,dim)
-        print(i,j," perfect matching: ",nx.is_perfect_matching(B,deleteEdges))
-        for e in deleteEdges:cost+=extractweight(g,e[0][1],e[1][1])
-        print(cost)
-        print(deleteEdges)
-        #
-        if cost > 2*kA:
-            EPA.remove[edge]
-            changed = True
-        else:
-            for e in deleteEdges:edgeUse[e]+=1
-        #
-        pa = None # new graph based on E_P_A
-            
-    return changed,edgeUse,pa
 
 # in _E(GA) \ _EFA
 # if neighborhood of i or of j are not empty (off diagonal)
