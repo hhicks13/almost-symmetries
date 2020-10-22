@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from array import*
 import sys
+import os
 import time
 from itertools import chain
 import networkx as nx
@@ -12,15 +13,27 @@ import igraph as ig
 import re
 import math
 import seaborn as sns
-import collections 
+import collections
+import multiprocessing
 from collections import deque
 from collections import namedtuple
 from numpy.random import permutation
 from operator import itemgetter
 from operator import attrgetter
 from networkx.algorithms import bipartite
-import timeit
+import logging
+from table_logger import TableLogger
+from datetime import datetime
 
+PA = nx.Graph()
+#kA_now = k - kA_before
+kA = 0
+k = 0
+counter = 0
+changed = True
+lowerBound = 0
+autNum = 0
+tbl = TableLogger(columns='counter,actual_time,kA,num edges in PA, num edges in GA')
 
 #### previous
 
@@ -48,7 +61,7 @@ def elim2_preprocess(n,Tau,P1):
     t = 0
     while eliminations_0 < n*(n-1):
         epsilon = Tau- t
-        # Eliminate if over budget
+        # Eliminate if over budget k < max(k)
         Rho[epsilon] = [ (e[0],e[1],-1) if e[2]  > 2*epsilon else e for e in Rho[epsilon+1] ]
 
         # zero matrix
@@ -106,9 +119,8 @@ def sortByLength(set1,set2):
 
 
 def buildCostMatrix1(_GA,u,v):
-    g = _GA
-    Nu = [e for e in nx.neighbors(g,u)]
-    Nv = [f for f in nx.neighbors(g,v)]
+    Nu = [e for e in nx.neighbors(_GA,u)]
+    Nv = [f for f in nx.neighbors(_GA,v)]
     try:
         Nu.remove(v)
         Nu.remove(u)
@@ -135,6 +147,8 @@ def buildCostMatrix2(i,j,Ni,Nj,dim,_kA):
 #u in left set and v in right#
 #u and v are named tuples
 def buildCostMatrix3(i,j,u,v,_GA,_PA,_EFA):
+    global PA
+    PA = _PA
     #3 cases:
     #v2v
     _u = u.name
@@ -166,6 +180,8 @@ def buildCostMatrix3(i,j,u,v,_GA,_PA,_EFA):
 def buildCostMatrix4(i,j,_GA,_PA,_EFA,_kA):
     #print(len(_GA.adj[i]))
     #print(len(_GA.adj[j]))
+    global PA
+    PA = _PA
     Ni,Nj,dim = buildCostMatrix1(_GA,i,j)
     LeftBp,RightBp = buildCostMatrix2(i,j,Ni,Nj,dim,_kA)
     # draw edge & weight, line 10
@@ -176,10 +192,10 @@ def buildCostMatrix4(i,j,_GA,_PA,_EFA,_kA):
         else:
             CostMatrix.add_node(e[0],bipartite=0)
             CostMatrix.add_node(e[1],bipartite=1)
-            CostMatrix.add_edge(e[0],e[1],weight=buildCostMatrix3(i,j,e[0],e[1],_GA,_PA,_EFA))
+            CostMatrix.add_edge(e[0],e[1],weight=buildCostMatrix3(i,j,e[0],e[1],_GA,PA,_EFA))
     #for u,v,weight in sorted(CostMatrix.edges.data("weight"),key=itemgetter(2,0,1)):print((u.isNeighbor,v.isNeighbor),u.name,v.name,weight)
-    M = nx.max_weight_matching(CostMatrix,maxcardinality=True,weight="weight")
-    assert(nx.is_perfect_matching(CostMatrix,M))
+    #M = nx.max_weight_matching(CostMatrix,maxcardinality=True,weight="weight")
+    #assert(nx.is_perfect_matching(CostMatrix,M))
     return CostMatrix
 
 def HungarianSolve(CostMatrix):
@@ -189,39 +205,56 @@ def HungarianSolve(CostMatrix):
     assert(cost >= 0)
     return cost, deleteEdges
 
-
+# construct an array that is (n + k) by (n+ k)
 def RefineByMatching(_GA,_PA,_EFA,_kA):
-    print("RefineByMatching: y/n?")
-    print(_kA)
-    changed = False
-    
-    print(_kA)
+    global counter
+    global PA
+    global kA
+    global tbl
+    PA = _PA
+    kA = _kA
+    counter+=1
+    tbl(counter,datetime.now(),kA,len(PA.edges),len(_GA.edges))
     edgeUse = {(e[0],e[1]):0 for e in list(_GA.edges)}
     #
-    PA = _PA
+    # how few matching calls do we need to make?
+    # let PA be a matrix with n columns where G has n vertices.
+    # there is Ak < k < max(k). max(k) should leave all but one edge of G. 
+    # we need to make at most ((n)*2-(n))/2 = (n)(n-1)/2 = n!/(n-min(x))!/2 where n!/(n-x)! is the formula ordered arrangements of len x where no no element occurs more than once (upper diagonal coordinates)
+    # worst case is when you have to test every entry of PA.edges (n^2-n)/2
+    # best case is you know ahead of time exactly which edges of G to delete
+    # edges of G correspond to columns of PA
+    # k columns correspond to n*k matchings.
+    # if you had an oracle it would select p*k matchings p < n (column length of PA)
     for edge in list(PA.edges):
         i = edge[0]
         j = edge[1]
-        CostMatrix = buildCostMatrix4(i,j,_GA,_PA,_EFA,_kA)
+        CostMatrix = buildCostMatrix4(i,j,_GA,PA,_EFA,kA)
         cost,deleteEdges = HungarianSolve(CostMatrix)
         assert(nx.is_perfect_matching(CostMatrix,deleteEdges))
-        print("COST:"," "*20,cost)
-        print("2*kA:"," "*20,2*_kA)
-        print("COST MATRIX EDGES:")
-        for u,v,weight in sorted(CostMatrix.edges.data("weight"),key=itemgetter(2,0,1)):print((u.isNeighbor,v.isNeighbor),u.name,v.name,weight)
-        print("COST MATRIX EDGES:")
+        #for u,v,weight in sorted(CostMatrix.edges.data("weight"),key=itemgetter(2,0,1)):print((u.isNeighbor,v.isNeighbor),u.name,v.name,weight)
+        # See line 10; algorithm 4
+        # for all edges in P, we remove a set of edges  in G until we are over budget.
+        # Therefore each edge in P is associated with the cost of a subset of edges in G
+        # Therefore each unique combination of edges in G is the domain and bounds the number of calls we need to make until 2*k is exceeded
+        # however, we have stipulated that we will not delete more than k edges of G
+        # assuming each edge has a matching cost of 0 (min matching-cost), that selection will result in at most k edges of G being deleted (max k-cost)
+        # the other case is where each edge gets mapped to another, so each matching cost is 2, and that selection results in at most k edges, so the matching cost will be 2*k.
+        # if 2*k is exceeded then we should stop editing the graph.
+        # how few matching calls? if the number of edges is 1, then 1.  
         deletions = [(u.name,u.parent,v.name,v.parent,CostMatrix[u][v]['weight']) for u,v in deleteEdges]
-        print("DELETIONS",deletions)
+        #Annotation
         for d in deletions:
             if d[0] == d[2]:
                 continue
             else:
-                print(d[0],d[1]," is in G?  ",(d[0],d[1]) in _GA.edges)
-                print((d[2],d[3])," is in G? ",(d[2],d[3]) in _GA.edges)
+                pass
+        #Annotation
         #
-        if cost > 2*_kA:
-            print(cost)
-            print(edge)
+        #Kneuven
+        if cost > 2*k:
+            #print(cost)
+            #print(edge)
             r_e = tuple(sorted(edge))
             PA.remove_edge(r_e[0],r_e[1])
         else:
@@ -233,26 +266,28 @@ def RefineByMatching(_GA,_PA,_EFA,_kA):
                     edgeUse[tuple(sorted((d[2],d[3])))] += 1
             
                     
-        s = list(sorted(edgeUse.items(), key=itemgetter(1), reverse=False))
-        print("Maximum:",s[0])
-        print("PRINTING EDGEUSE ARRAY")
-        for edge in s[:25]:print(edge[1],end=", ")
-        print("Done!")
+        #s = list(sorted(edgeUse.items(), key=itemgetter(1), reverse=False))
+        #print("Maximum:",s[0])
+        #print("PRINTING EDGEUSE ARRAY")
+        #for edge in s[:25]:print(edge[1],end=", ")
+        #print("Done!")
+        
         return edgeUse,PA
 
 
 
 # call count_automorphisms_vf2 on G.
 def ComputeAutomorphisms(_GA):
-    G = ig.Graph.from_networkx(_GA)
-    autNum = G.count_automorphisms_vf2()
+    g = ig.Graph.from_networkx(_GA)
+    autNum = g.count_automorphisms_vf2()
     return autNum
 
 # Need set E(PA) exposed
 # _GA must be g
 def DegreeDiffElim(_GA,_PA,_kA):
-    E_PA = list(_PA.edges)
+    global PA
     PA = _PA
+    E_PA = list(PA.edges)
     for edge in E_PA[:]:
         i = edge[0]
         j = edge[1]
@@ -260,7 +295,7 @@ def DegreeDiffElim(_GA,_PA,_kA):
             E_PA.remove(edge)
             PA.remove_edge(i,j)
     
-    print("-"*20,"refinement",PA)
+    #print("-"*20,"refinement",PA)
     return PA
 
 # dEFA(i) to be the number of fixed edges incident to i
@@ -270,6 +305,7 @@ def DegreeDiffElim(_GA,_PA,_kA):
     return len(adjacent_fixed)
 
 def FixedDefElim(_GA,_PA,_EFA):
+    global PA
     PA = _PA
     E_PA = list(_PA.edges)
     for edge in E_PA:
@@ -288,8 +324,10 @@ def FixedDefElim(_GA,_PA,_EFA):
 # nx.maximal_independent_set(G)
 # return size of preceding
 def GreedyIndependentSetSize(_PA):
+    global PA
+    PA = _PA
     independent_set =  nx.maximal_independent_set(_PA)
-    print(len(independent_set),"$$$$$$$$$")
+    #print(len(independent_set),"$$$$$$$$$")
     return len(independent_set)
 
 
@@ -302,19 +340,17 @@ def GreedyIndependentSetSize(_PA):
 # return the first encountered
 # else prune
 def FindBranchEdge(_GA,_PA,_EFA,_edgeUse):
+    global PA
+    PA = _PA
     items = _edgeUse.items()
     argmax = max(items, key=itemgetter(1))[0]
-    print("ARGMAX",argmax)
-    if input() == 'y':
-        pass
-    else:
-        pass
+    #print("ARGMAX",argmax)
     
     if _edgeUse[argmax] > 0:
         return argmax
     fixed = set(list(_EFA.edges))
     remaining_edges = [tuple(sorted(edge)) for edge in list(_GA.edges) if edge not in fixed]
-    print("Remaining_edges of GA",remaining_edges)
+    #print("Remaining_edges of GA",remaining_edges)
     for edge in remaining_edges:
         if edge[0] == edge[1]:
             continue
@@ -332,7 +368,14 @@ def FindBranchEdge(_GA,_PA,_EFA,_edgeUse):
 
 def main():
     # used to distinguish dummy variables from vertices.
-        
+    logging.basicConfig(filename='almostSymmetries.log',level=logging.INFO)
+    global PA
+    global k
+    global G
+    global changed
+    global lowerBound
+    global autNum
+    
     n = int(sys.argv[1])
     p = float(sys.argv[2])
     G = nx.erdos_renyi_graph(n,p)
@@ -344,120 +387,106 @@ def main():
     t = 0
     #
 
-    print("Begin FindAlmostSymmetry")
+    logging.info('Begin FindAlmostSymmetry')
 
     #
-    print("Initialize Root Node")
+    logging.info('Initialize Root Node')
     k = int(sys.argv[3])
     P_R = nx.complete_graph(n)
     EDR = nx.Graph();
     EDR.add_nodes_from(list(G.nodes))
-    print(EDR.nodes)
+    
     EFR = nx.Graph();
     EFR.add_nodes_from(list(G.nodes))
-    print(EFR.nodes)
+    
     delChild = True
     #
-    print("Incumbents")
+    logging.info("Incumbents")
     incumbentValue = n #|G|
     incumbentSolution = 0 #EDA
     # input to nodestack is iterable
-    print("Append root to stack")
+    logging.info("Append root to stack")
     NodeStack = deque()
     NodeStack.append(Node(P_R,EDR,EFR,delChild))
-    print("enter loop")
+    logging.info("enter loop")
     while True:
-        T +=1
         try:
             #
-            print(T,": Unpack Node data")
+            logging.info('unpack Node data')
             A = NodeStack.pop();
-            
-            
             PA = A.PA
-            print("EDGES OF PA",len(PA.edges))
             eda = nx.Graph(A.EDA);
-            print("EDGES OF EDA",len(eda.edges))
             efa = nx.Graph(A.EFA);
-            print("EDGES OF EFA",len(efa.edges))
-            print("NODES OF EFA",efa.nodes)
             delChild = A.delChild;
-            print("delChild",delChild)
             #
-            print("constructing GA")
-            GA = G
-            print(GA.nodes)
+            GA = nx.Graph(G)
             for e in list(eda.edges):
                 if e[0] != e[1]:
                     GA.remove_edge(e[0],e[1])
-            
-            kA = k - len(eda.edges)
-            print("EDGES of GA",GA.edges)
-            print("value of kA",kA)
             #
-            print("Fix:",efa.edges,"Del",eda.edges)
+            kA = k - len(eda.edges)
+            #
+            
             if delChild:
-                print(spacer,"Node signal: Delete Edges, compute aut")
+                logging.info(spacer+"Node signal: Delete Edges, compute aut")
                 autNum = ComputeAutomorphisms(GA)
-                print("Autnum",autNum)
-                print("incumbent",incumbentValue)
+                logging.info(spacer+"Autnum computed")
                 if autNum < incumbentValue:
-                    print(spacer,spacer,"update incumbents")
+                    logging.info(spacer+"update incumbents")
                     incumbentValue = autNum
                     incumbentSolution = eda
                 if len(efa.edges) == len(GA.edges) or kA == 0:
-                    print(spacer,spacer,"prune: no more edges / budget depleted")
+                    logging.info(spacer+spacer+"prune: no more edges / budget depleted")
                     break
                 PA = DegreeDiffElim(GA,PA,kA) #update PA
-                print(PA.edges)
-                print(spacer,"updated edges of P_A:",len(PA.edges)," members")
+                
+                logging.info(spacer+"updated edges of P_A:"+str(len(PA.edges))+" members")
             #
             else:
-                print(spacer,"Node Signal: Fix Edges, refine P_A")
+                logging.info(spacer+"Node Signal: Fix Edges, refine P_A")
                 if len(efa.edges) == len(GA.edges):
-                    print(spacer,spacer,"prune: no more edges")
+                    logging.info(spacer+spacer+"prune: no more edges")
                     continue
-                print(spacer,"update PA, FixedDegreeElim")
+                logging.info(spacer+"update PA, FixedDegreeElim")
                 PA = FixedDefElim(GA,PA,efa)
             #
-            print(T,".0 lower bound via greedyIndependentSet")
+            #print(T,".0 lower bound via greedyIndependentSet")
             lowerBound = GreedyIndependentSetSize(PA)
             #
             if lowerBound >= incumbentValue:
                 continue
-            print(T,".1 lower bound loop")
-            print(spacer,T,".1.1: While P_A changed by RefinebyMatching")
-            edgeUse,_PA = RefineByMatching(GA,PA,efa,kA)
-            while collections.Counter(list(PA.edges)) != collections.Counter(list(_PA.edges)):
-                t +=1
-                edgeUse,PA = RefineByMatching(GA,_PA,efa,kA)
+            logging.info(".1 lower bound loop")
+            logging.info(spacer+".1.1: While P_A changed by RefinebyMatching")
+            while changed:
+                edgeUse,pa = RefineByMatching(GA,PA,efa,kA)
                 lowerBound = GreedyIndependentSetSize(PA)
-                print(spacer,spacer,T,".",t,". computing bound")
+                logging.info(spacer+spacer+". computing bound")
                 if lowerBound >= incumbentValue:
-                    print(spacer,spacer,T,".",t," lowerbound >= incumbentValue: prune node")
+                    logging.info(spacer+spacer+" lowerbound >= incumbentValue: prune node")
                     break
                 else:
-                    print(T,".2 new lower bound!")
-                    edgeUse,_PA = RefineByMatching(GA,PA,efa,kA)
-            print(T,".3 FindBranchEdge")
-            branchEdge = FindBranchEdge(GA,_PA,efa,edgeUse)
-            print(spacer,T,".3.1 bounding is concluded")
+                    edgeUse,_pa = RefineByMatching(GA,PA,efa,kA)
+                    changed = not len(pa) == len(_pa)
+                    #print(T,".2 new lower bound!")
+            logging.info(".3 FindBranchEdge")
+            branchEdge = FindBranchEdge(GA,PA,efa,edgeUse)
+            logging.info(spacer+".3.1 bounding is concluded")
             # 
             if branchEdge == -1:
-                print(spacer,T,".3.2 branchEdge signal: prune")
+                logging.info(space+".3.2 branchEdge signal: prune")
                 continue
             #
-            print(T,".4 create children")
+            logging.info(".4 create children")
             b = tuple(sorted((branchEdge[0],branchEdge[1])))
             efa_branch = efa.add_edge(b[0],b[1])
             eda_branch = eda.add_edge(b[0],b[1])
-            print(spacer,T,".4.1: append fChild")
+            logging.info(spacer+".4.1: append fChild")
             NodeStack.append(Node(PA,eda,efa_branch,False))
-            print(spacer,T,".4.2: append dChild")
-            NodeStack.append(Node(_PA,eda_branch,efa,True))            
+            logging.info(spacer+".4.2: append dChild")
+            NodeStack.append(Node(PA,eda_branch,efa,True))            
         #
         except IndexError:
-            print(T,".5: end of stack")
+            logging.info(".5: end of stack")
             break
         
     print("incumbentValue",incumbentValue)
@@ -470,7 +499,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-#
-#
-#
-# print neuron-cosets based on memo2
