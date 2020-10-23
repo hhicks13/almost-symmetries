@@ -22,21 +22,24 @@ from operator import itemgetter
 from operator import attrgetter
 from networkx.algorithms import bipartite
 import logging
+import pandas as pd
 from table_logger import TableLogger
 from datetime import datetime
 
 
 k = int(sys.argv[3])
-#loop_counter = 0 
+loop_counter = 0 
 #rbm_counter = 0
 #over_counter = 0
 #under_counter = 0
 total_matchings_performed = 0
 number_edges_killed = 0
+knueven_tmp = []
+knueven_nek = []
 lowerBound = 0
 incumbentValue = 0
 incumbentSolution = nx.Graph()
-tbl = TableLogger(columns='time,loop_counter,rbm_counter,over_counter,under_counter,total_matchings_performed,number_edges_killed')
+
 
 #### previous
 
@@ -216,6 +219,9 @@ def RefineByMatching(_GA,_pa,_EFA,_kA):
     #global under_counter
     global total_matchings_performed
     global number_edges_killed
+    global knueven_nek
+    global knueven_tmp
+    
     PA = nx.Graph(_pa)
     kA = _kA
     GA = nx.Graph(_GA)
@@ -223,7 +229,7 @@ def RefineByMatching(_GA,_pa,_EFA,_kA):
     changed = False
     
     edgeUse = {e:0 for e in PA.edges}
-    rbm_counter+=1
+    #rbm_counter+=1
     for edge in _pa.edges:
         total_matchings_performed+=1
         e = tuple(sorted(edge))
@@ -234,15 +240,15 @@ def RefineByMatching(_GA,_pa,_EFA,_kA):
         
         if cost > 2*kA:
             changed = True
-            over_counter+=1
+            #over_counter+=1
             PA.remove_edges_from([e])
         else:
-            under_counter+=1
+            #under_counter+=1
             
             #Kneuven heuristic
             for d in deleteEdges:
                 edgeUse[e] +=1
-                number_of_edges_killed+=1
+                number_edges_killed+=1
         
         return changed,edgeUse,PA
 
@@ -349,11 +355,13 @@ def main():
     global incumbentSolution
     #
     global loop_counter
-    global rbm_counter
-    global over_counter
-    global under_counter
+    #global rbm_counter
+    #global over_counter
+    #global under_counter
     global total_matchings_performed
     global number_edges_killed
+    global knueven_nek
+    global knueven_tmp
     #
     n = int(sys.argv[1])
     p = float(sys.argv[2])
@@ -445,6 +453,8 @@ def main():
             changed = True
             while changed and not prune:
                 loop_counter+=1
+                knueven_tmp.append(int(total_matchings_performed))
+                knueven_nek.append(int(number_edges_killed))
                 lowerBound = GreedyIndependentSetSize(PA)
                 logging.info(spacer+spacer+". computing bound")
                 if lowerBound >= incumbentValue:
@@ -481,15 +491,13 @@ def main():
         except IndexError:
             logging.info(".5: end of stack")
             break
-        
-    print("incumbentValue",incumbentValue)
-    print("incumbentSolution",incumbentSolution)
-    print("loop_counter",loop_counter)
-    print("rbm_counter",rbm_counter)
-    print("over_counter",over_counter)
-    print("under_counter",under_counter)
-    print("total_matchings_performed",total_matchings_performed)
-    print("number_edges_killed",number_edges_killed)
+    d = {'total_matchings_indexed_by_loop':knueven_tmp, 'number_edges_killed':knueven_nek }
+    df = pd.DataFrame.from_dict(d,orient='index').transpose()
+    tmp_sum_over_all_loops = sum(knueven_tmp)
+    nek_sum_over_all_loops = sum(knueven_nek)
+    print("counter",loop_counter)
+    print("Total Matchings Performed Overall",tmp_sum_over_all_loops)
+    print("Number of Edges Killed Overall",nek_sum_over_all_loops)
     
 
    
